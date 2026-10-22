@@ -1,5 +1,13 @@
 @use './legacy-styles';
 
+.app-icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
 #app-splash {
   position: fixed;
   inset: 0;

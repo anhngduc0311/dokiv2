@@ -87,7 +87,7 @@ body {
 }
 
 app-root,
-app-home,
+.home-page,
 app-detail,
 app-search,
 app-account,
@@ -596,7 +596,7 @@ small {
   color: #ffb800;
   font-weight: 600;
 
-  app-icon {
+  .app-icon {
     width: 12px;
     height: 12px;
   }
@@ -726,7 +726,7 @@ small {
   transition: all 0.25s ease;
   overflow: hidden;
 
-  app-icon {
+  .app-icon {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -796,7 +796,7 @@ small {
     border: none;
     background: transparent;
 
-    app-icon {
+    .app-icon {
       color: var(--muted);
       transition: color 0.15s ease;
     }
@@ -805,7 +805,7 @@ small {
       background: rgba(255, 255, 255, 0.08);
       color: var(--accent);
 
-      app-icon {
+      .app-icon {
         color: var(--accent);
       }
     }
@@ -814,7 +814,7 @@ small {
   .logout-btn {
     color: #f87171;
 
-    app-icon {
+    .app-icon {
       color: #f87171;
     }
 
@@ -822,7 +822,7 @@ small {
       background: rgba(239, 68, 68, 0.12);
       color: #ef4444;
 
-      app-icon {
+      .app-icon {
         color: #ef4444;
       }
     }
@@ -832,7 +832,7 @@ small {
     color: #ff334b !important;
     font-weight: 600 !important;
     background: rgba(229, 9, 20, 0.08) !important;
-    app-icon { color: #ff334b !important; }
+    .app-icon { color: #ff334b !important; }
     &:hover { background: rgba(229, 9, 20, 0.16) !important; color: #fff !important; }
   }
 }
@@ -1101,7 +1101,7 @@ small {
     align-items: center;
     gap: 8px;
 
-    app-icon {
+    .app-icon {
       width: 32px;
       height: 32px;
       opacity: 0.4;
@@ -1415,7 +1415,7 @@ small {
     width: 100%;
     text-align: left;
 
-    app-icon {
+    .app-icon {
       color: var(--muted);
     }
 
@@ -1424,7 +1424,7 @@ small {
       background: var(--surface);
       color: var(--accent);
 
-      app-icon {
+      .app-icon {
         color: var(--accent);
       }
     }
@@ -1486,7 +1486,7 @@ small {
   .drawer-logout-btn {
     color: #ef4444;
 
-    app-icon {
+    .app-icon {
       color: #ef4444;
     }
 
@@ -1607,7 +1607,7 @@ small {
     white-space: nowrap;
     transition: color 0.15s ease;
 
-    app-icon {
+    .app-icon {
       width: 16px;
       height: 16px;
     }
@@ -1698,7 +1698,7 @@ small {
     margin: 0;
     font-size: 19px;
 
-    app-icon {
+    .app-icon {
       color: var(--accent);
       width: 20px;
       height: 20px;
@@ -1736,7 +1736,7 @@ small {
     display: inline;
   }
 
-  app-icon {
+  .app-icon {
     width: 14px;
     height: 14px;
     color: var(--accent);
@@ -1749,7 +1749,7 @@ small {
     color: var(--accent);
     box-shadow: 0 3px 12px rgba(255, 122, 0, 0.25);
 
-    app-icon {
+    .app-icon {
       transform: translateX(3px);
     }
   }
@@ -2024,7 +2024,7 @@ small {
     gap: 3px;
   }
 
-  app-icon {
+  .app-icon {
     width: 12px;
     height: 12px;
   }
@@ -2106,7 +2106,7 @@ small {
     h2 {
       font-size: 16px;
 
-      app-icon {
+      .app-icon {
         width: 17px;
         height: 17px;
       }
@@ -2266,7 +2266,7 @@ small {
       font-size: 11px;
       color: var(--muted);
 
-      app-icon {
+      .app-icon {
         width: 11px;
         height: 11px;
       }
@@ -2412,7 +2412,7 @@ small {
   border-radius: var(--radius-lg);
   margin: 20px 0;
 
-  app-icon {
+  .app-icon {
     width: 44px;
     height: 44px;
     color: var(--accent);
@@ -3314,7 +3314,7 @@ small {
       font-size: 13.5px;
       color: var(--fg);
 
-      app-icon {
+      .app-icon {
         color: var(--accent);
       }
 
@@ -4009,7 +4009,7 @@ small {
   border-color: var(--accent);
   animation: toastPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
-  app-icon {
+  .app-icon {
     color: var(--accent);
   }
 
@@ -4599,7 +4599,7 @@ small {
         transform: translateY(-1px);
       }
 
-      app-icon {
+      .app-icon {
         color: var(--accent);
         width: 15px;
         height: 15px;
@@ -4818,7 +4818,7 @@ small {
       align-items: center;
       justify-content: center;
 
-      app-icon {
+      .app-icon {
         width: 18px;
         height: 18px;
       }
@@ -4961,7 +4961,7 @@ small {
     h2 {
       font-size: 16.5px;
 
-      app-icon {
+      .app-icon {
         width: 18px;
         height: 18px;
       }
@@ -5028,7 +5028,7 @@ small {
     font-size: 11px;
     gap: 8px;
 
-    app-icon {
+    .app-icon {
       width: 12px;
       height: 12px;
     }
@@ -5068,7 +5068,7 @@ small {
       padding: 0 6px;
       font-size: 12px;
 
-      app-icon {
+      .app-icon {
         width: 14px;
         height: 14px;
       }
@@ -5161,7 +5161,7 @@ small {
       padding: 2.5px 6px;
       gap: 3px;
 
-      app-icon {
+      .app-icon {
         width: 10px;
         height: 10px;
       }
@@ -5188,7 +5188,7 @@ small {
       overflow: hidden;
       text-overflow: ellipsis;
 
-      app-icon {
+      .app-icon {
         width: 13px;
         height: 13px;
       }
@@ -5235,7 +5235,7 @@ small {
       font-size: 13.5px;
       margin-bottom: 6px;
 
-      app-icon {
+      .app-icon {
         width: 14px;
         height: 14px;
       }
@@ -5262,7 +5262,7 @@ small {
     h2 {
       font-size: 13.5px;
 
-      app-icon {
+      .app-icon {
         width: 14px;
         height: 14px;
       }
@@ -5439,7 +5439,7 @@ small {
       transition: all 0.2s ease;
       position: relative;
 
-      app-icon {
+      .app-icon {
         width: 20px;
         height: 20px;
         transition: transform 0.2s ease;
@@ -5448,7 +5448,7 @@ small {
       &.active {
         color: var(--accent);
 
-        app-icon {
+        .app-icon {
           transform: translateY(-2px);
           color: var(--accent);
         }
@@ -5604,7 +5604,7 @@ small {
           display: none !important;
         }
 
-        app-icon {
+        .app-icon {
           width: 14px;
           height: 14px;
         }
@@ -5646,7 +5646,7 @@ small {
             color: #000;
           }
 
-          app-icon {
+          .app-icon {
             width: 11px;
             height: 11px;
           }
@@ -5665,7 +5665,7 @@ small {
             align-items: center;
             gap: 1px;
 
-            app-icon {
+            .app-icon {
               width: 7px;
               height: 7px;
             }
@@ -5833,7 +5833,7 @@ small {
           text-overflow: ellipsis;
         }
 
-        app-icon {
+        .app-icon {
           width: 11px;
           height: 11px;
           flex-shrink: 0;
@@ -5954,7 +5954,7 @@ small {
     font-size: 9.5px;
     gap: 6px;
 
-    app-icon {
+    .app-icon {
       width: 10px;
       height: 10px;
     }
@@ -6085,7 +6085,7 @@ span.tag-romance {
       align-items: center;
       gap: 10px;
 
-      app-icon {
+      .app-icon {
         width: 26px;
         height: 26px;
         color: #06b6d4;

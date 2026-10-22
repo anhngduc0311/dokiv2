@@ -74,7 +74,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const splash = document.getElementById('app-splash');
       if (splash && !splash.classList.contains('fade-out')) {
         splash.classList.add('fade-out');
-        setTimeout(() => splash.remove(), 500);
+        setTimeout(() => {
+          if (splash) {
+            splash.style.display = 'none';
+          }
+        }, 500);
       }
     };
 

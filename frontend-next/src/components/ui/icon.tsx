@@ -71,14 +71,7 @@ export function Icon({ name = 'book', className = '', style }: IconProps) {
   return (
     <span
       className={`app-icon ${className}`}
-      style={{
-        display: 'inline-flex',
-        width: '20px',
-        height: '20px',
-        flexShrink: 0,
-        verticalAlign: 'middle',
-        ...style
-      }}
+      style={style}
     >
       <svg
         viewBox="0 0 24 24"

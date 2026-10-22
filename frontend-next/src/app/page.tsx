@@ -345,7 +345,7 @@ function HomeContent() {
   };
 
   return (
-    <>
+    <div className="home-page">
       {/* SPOTLIGHT SECTION */}
       <section className="doki-spotlight" aria-label="Truyện nổi bật">
         {currentSpotlight ? (
@@ -614,7 +614,7 @@ function HomeContent() {
       <section className="home-community" aria-label="Cộng đồng đọc truyện">
         <Sidebar />
       </section>
-    </>
+    </div>
   );
 }
 

@@ -405,7 +405,7 @@ function SearchContent() {
           <p>Đang tìm truyện phù hợp…</p>
         </div>
       ) : (
-        <>
+        <div className="search-results-section">
           <div className="search-grid">
             {items.map(m => (
               <MangaCard key={m.id} manga={m} />
@@ -432,7 +432,7 @@ function SearchContent() {
               hover={prefetchPage}
             />
           )}
-        </>
+        </div>
       )}
     </div>
   );

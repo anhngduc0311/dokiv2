@@ -91,7 +91,7 @@
 .featured-card:hover { transform: none; box-shadow: none; }
 .featured-overlay { padding: 15px 12px; background: linear-gradient(180deg, #00000018 20%, transparent 35%, #0c1013e8 100%); }
 .featured-overlay .featured-badge { display: inline-flex; gap: 4px; align-items: center; background: #111315df; color: #ffe1b7; border: 1px solid #ffffff25; border-radius: 5px; box-shadow: none; font-size: 10px; }
-.featured-badge app-icon { width: 12px; height: 12px; }
+.featured-badge .app-icon { width: 12px; height: 12px; }
 .featured-overlay h3 { font-size: 13px; line-height: 1.55; text-shadow: none; }
 .featured-overlay .featured-sub { color: #d5d6d7; font-size: 10px; margin-top: 5px; }
 .featured-empty { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); padding: 24px 0; }
@@ -115,7 +115,7 @@
 .mini-chap-item time { font-size: 10px; }
 .sidebar-section { box-shadow: none; border-radius: 12px; padding: 20px; background: var(--panel); }
 .sidebar-section .section-title h2 { font-size: 16px; letter-spacing: -.4px; }
-.sidebar-section .section-title h2 app-icon { width: 17px; height: 17px; }
+.sidebar-section .section-title h2 .app-icon { width: 17px; height: 17px; }
 .sidebar-section .view-all-link { font-size: 10px; }
 .empty-history { padding: 22px 0; }
 .rank-tabs { background: var(--surface); padding: 4px; border-radius: 7px; }
@@ -167,7 +167,7 @@
   .filter-title-row .search-input-field input { font-size: 13px; padding-left: 34px; padding-right: 26px; }
   .filter-title-row .search-input-field .field-icon { left: 10px; width: 16px; height: 16px; }
   .filter-title-row .btn-toggle-filter { width: auto; font-size: 12px; padding: 0 10px; }
-  .filter-title-row .btn-toggle-filter > app-icon:first-child { width: 16px; height: 16px; }
+  .filter-title-row .btn-toggle-filter > .app-icon:first-child { width: 16px; height: 16px; }
   .filter-bottom-bar .sort-field-wrap { width: 100%; justify-content: space-between; }
   .filter-bottom-bar .sort-field-wrap select { flex: 1; max-width: 220px; }
   .filter-bottom-bar .filter-action-buttons button { font-size: 13px; }
