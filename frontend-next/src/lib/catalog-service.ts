@@ -4,8 +4,8 @@ import { catalogPagination, searchMangaDex, mangaDexGet, mapMangaDexManga, enric
 import type { CatalogFilters } from './mangadex-catalog';
 import { ggTotal, ggWindow, getGgDetail, getGgChapters, getGgReader, getGgTags } from './truyengg-catalog';
 import { sourceWindow, interleaveSourceItems } from './catalog-pagination';
+import { loadMangaDexChapterFeed, readerNavigation, readMangaDexChapter } from './mangadex-reader';
 
-const MANGADEX_API = 'https://api.mangadex.org';
 
 export interface ChapterCard {
   id: string;
@@ -245,22 +245,31 @@ export async function getMangaDetail(id: string): Promise<MangaCard | null> {
   }
 }
 
+async function mangaDexChapterFeed(id: string, language: string): Promise<ChapterCard[]> {
+  const key = 'catalog:md:chapter-feed:v2:' + id + ':' + language;
+  const cached = await cacheGet<ChapterCard[]>(key);
+  if (cached) return cached;
+  const items = await loadMangaDexChapterFeed(id, language, mangaDexGet);
+  await cacheSet(key, items, 300);
+  return items;
+}
+
 // 5. MANGA CHAPTERS
 export async function getMangaChapters(
   mangaId: string,
   page: number = 1,
-  ascending: boolean = false
+  ascending: boolean = false,
+  language: string = 'vi'
 ): Promise<{ items: ChapterCard[]; total: number; page: number; pageSize: number }> {
-  const gg = await getGgChapters(mangaId, ascending);
+  const gg = language === 'vi' ? await getGgChapters(mangaId, ascending) : null;
   if (gg) return gg;
   await ensureDbInitialized();
 
   // Try DB chapters
-  const order = ascending ? 'ASC' : 'DESC';
   const rows = await sql`
     SELECT "Id", "MangaId", "Number", "Title", "Language", "PublishedAt", "ContentType", array_length("Pages", 1) as pages_count
     FROM "Chapters"
-    WHERE "MangaId" = ${mangaId}
+    WHERE "MangaId" = ${mangaId} AND "Language" = ${language}
     ORDER BY "Number" DESC
   `;
 
@@ -289,35 +298,9 @@ export async function getMangaChapters(
     };
   }
 
-  // Fallback to MangaDex chapter feed
-  try {
-    const feedUrl = `${MANGADEX_API}/manga/${mangaId}/feed?translatedLanguage[]=vi&order[chapter]=${ascending ? 'asc' : 'desc'}&limit=500`;
-    const res = await fetch(feedUrl);
-    if (res.ok) {
-      const data = await res.json();
-      const items: ChapterCard[] = (data.data || []).map((ch: any) => {
-        const num = parseFloat(ch.attributes?.chapter || '1');
-        return {
-          id: ch.id,
-          mangaId,
-          number: isNaN(num) ? 1 : num,
-          title: ch.attributes?.title || `Chương ${ch.attributes?.chapter || 1}`,
-          language: 'vi',
-          publishedAt: ch.attributes?.publishAt || new Date().toISOString(),
-          group: 'MangaDex Group'
-        };
-      });
-
-      return {
-        items,
-        total: items.length,
-        page: 1,
-        pageSize: 500
-      };
-    }
-  } catch {}
-
-  return { items: [], total: 0, page: 1, pageSize: 20 };
+  const chapters = readerNavigation(await mangaDexChapterFeed(mangaId, language));
+  const items = ascending ? chapters : [...chapters].reverse();
+  return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
 }
 
 // 6. CHAPTER READER
@@ -390,68 +373,11 @@ export async function getChapterReader(chapterId: string): Promise<ReaderData | 
     };
   }
 
-  // Fallback to MangaDex At-Home server
-  try {
-    const atHomeRes = await fetch(`${MANGADEX_API}/at-home/server/${chapterId}`);
-    if (atHomeRes.ok) {
-      const atHome = await atHomeRes.json();
-      const baseUrl = atHome.baseUrl;
-      const hash = atHome.chapter?.hash;
-      const files: string[] = atHome.chapter?.data || [];
-      const dataSaverFiles: string[] = atHome.chapter?.dataSaver || files;
-
-      const pages = files.map(f => `${baseUrl}/data/${hash}/${f}`);
-      const dataSaverPages = dataSaverFiles.map(f => `${baseUrl}/data-saver/${hash}/${f}`);
-
-      // Fetch chapter meta
-      const chapMetaRes = await fetch(`${MANGADEX_API}/chapter/${chapterId}?includes[]=manga`);
-      let mangaId = '';
-      let chTitle = 'Chương';
-      let chNum = 1;
-      let mangaTitle = 'Truyện';
-
-      if (chapMetaRes.ok) {
-        const chapMeta = await chapMetaRes.json();
-        const attr = chapMeta.data?.attributes || {};
-        const rels = chapMeta.data?.relationships || [];
-        const mangaRel = rels.find((r: any) => r.type === 'manga');
-        mangaId = mangaRel?.id || '';
-        chNum = parseFloat(attr.chapter || '1');
-        chTitle = attr.title || `Chương ${attr.chapter || 1}`;
-      }
-
-      return {
-        chapter: {
-          id: chapterId,
-          mangaId,
-          number: isNaN(chNum) ? 1 : chNum,
-          title: chTitle,
-          language: 'vi',
-          publishedAt: new Date().toISOString()
-        },
-        manga: {
-          id: mangaId,
-          title: mangaTitle,
-          alternativeTitle: '',
-          author: '',
-          cover: '/cover-placeholder.svg',
-          description: '',
-          genres: [],
-          status: 'ongoing',
-          country: 'jp',
-          demographic: 'shounen',
-          updatedAt: new Date().toISOString(),
-          chapters: []
-        },
-        pages,
-        dataSaverPages,
-        externalUrl: null,
-        navigation: []
-      };
-    }
-  } catch {}
-
-  return null;
+  return readMangaDexChapter(chapterId, {
+    get: mangaDexGet,
+    manga: getMangaDetail,
+    chapters: mangaDexChapterFeed
+  });
 }
 
 // 7. TAGS

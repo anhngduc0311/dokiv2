@@ -600,6 +600,12 @@ function ReaderContent() {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
+      {loading && (
+        <div className="loading-panel" role="status">
+          <div className="search-spinner" />
+          <p>Đang tải chương truyện…</p>
+        </div>
+      )}
       {error && (
         <div className="error-state glass-panel">
           <Icon name="info" />
