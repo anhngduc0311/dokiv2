@@ -60,8 +60,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:5080
-      ConnectionStrings__Database: Host=db;Database=truyendex;Username=truyendex;Password=${POSTGRES_PASSWORD}
-      ConnectionStrings__Redis: redis:6379,password=${REDIS_PASSWORD},abortConnect=false
+      ConnectionStrings__Database: ${ConnectionStrings__Database:-Host=db;Database=truyendex;Username=truyendex;Password=${POSTGRES_PASSWORD}}
+      ConnectionStrings__Redis: ${ConnectionStrings__Redis:-redis:6379,password=${REDIS_PASSWORD},abortConnect=false}
       Meilisearch__Url: http://meilisearch:7700
       Meilisearch__ApiKey: ${MEILI_MASTER_KEY}
       Jwt__Key: ${JWT_KEY:?Missing JWT_KEY}
@@ -69,6 +69,10 @@ services:
       Seed__AdminPassword: ${ADMIN_PASSWORD:?Missing ADMIN_PASSWORD}
       Google__ClientId: ${GOOGLE_CLIENT_ID:-}
       Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
@@ -79,10 +83,10 @@ services:
 
   web:
     <<: *runtime
-    build: ./frontend
+    build: ./frontend-next
     depends_on: [api]
     ports:
-      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-80}:80"
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -q -T 5 -O /dev/null http://127.0.0.1/"]
       interval: 10s

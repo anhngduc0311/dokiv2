@@ -1,2 +1,7 @@
-import { MigrationPlaceholder } from '@/components/layout/migration-placeholder';
-export default function FollowsPage() { return <MigrationPlaceholder title="Truyện theo dõi" />; }
+'use client';
+
+import { LibraryView } from '../../components/account/library-view';
+
+export default function FollowPage() {
+  return <LibraryView isHistory={false} />;
+}

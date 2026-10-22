@@ -1,2 +1,3 @@
-import { MigrationPlaceholder } from '@/components/layout/migration-placeholder';
-export default function AuthorsPage() { return <MigrationPlaceholder title="Tác giả" />; }
+import AuthorPage from './[name]/page';
+
+export default AuthorPage;

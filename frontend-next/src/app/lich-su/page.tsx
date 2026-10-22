@@ -1,2 +1,7 @@
-import { MigrationPlaceholder } from '@/components/layout/migration-placeholder';
-export default function HistoryPage() { return <MigrationPlaceholder title="Lịch sử đọc" />; }
+'use client';
+
+import { LibraryView } from '../../components/account/library-view';
+
+export default function HistoryPage() {
+  return <LibraryView isHistory={true} />;
+}

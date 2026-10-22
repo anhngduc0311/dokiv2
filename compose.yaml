@@ -48,13 +48,19 @@ services:
     build: ./backend/TruyenDex.Api
     environment:
       ASPNETCORE_URLS: http://+:5080
-      ConnectionStrings__Database: Host=db;Database=truyendex;Username=truyendex;Password=${POSTGRES_PASSWORD}
-      ConnectionStrings__Redis: redis:6379,password=${REDIS_PASSWORD:-truyendex_redis_secret},abortConnect=false
+      ConnectionStrings__Database: ${ConnectionStrings__Database:-Host=db;Database=truyendex;Username=truyendex;Password=${POSTGRES_PASSWORD}}
+      ConnectionStrings__Redis: ${ConnectionStrings__Redis:-redis:6379,password=${REDIS_PASSWORD:-truyendex_redis_secret},abortConnect=false}
       Meilisearch__Url: http://meilisearch:7700
       Meilisearch__ApiKey: ${MEILI_MASTER_KEY:-truyendex_meili_master_key_secret}
       Jwt__Key: ${JWT_KEY:?Run scripts/setup.ps1 first}
       Seed__AdminEmail: ${ADMIN_EMAIL:-admin@truyendex.local}
       Seed__AdminPassword: ${ADMIN_PASSWORD:?Run scripts/setup.ps1 first}
+      Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy
@@ -66,10 +72,10 @@ services:
       - "127.0.0.1:5080:5080"
 
   web:
-    build: ./frontend
+    build: ./frontend-next
     depends_on: [api]
     ports:
-      - "127.0.0.1:4200:80"
+      - "127.0.0.1:3000:3000"
 
 volumes:
   postgres_data:

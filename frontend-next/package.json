@@ -9,11 +9,13 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "jszip": "^3.10.1",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@types/jszip": "^3.4.1",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

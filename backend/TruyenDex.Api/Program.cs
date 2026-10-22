@@ -15,12 +15,52 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.Local.json", true, true).AddEnvironmentVariables();
 var key = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Run scripts/setup.ps1 or configure Jwt__Key.");
 if (key.Length < 32) throw new InvalidOperationException("Jwt key must be at least 32 characters.");
-builder.Services.AddDbContext<AppDb>(o => o.UseNpgsql(builder.Configuration.GetConnectionString("Database")));
+// Database connection (supports standard ADO.NET or postgresql:// URL from Neon)
+var dbConn = builder.Configuration.GetConnectionString("Database")
+             ?? builder.Configuration["DATABASE_URL"]
+             ?? builder.Configuration["DatabaseUrl"];
+
+if (!string.IsNullOrWhiteSpace(dbConn) && (dbConn.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) || dbConn.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))) {
+    try {
+        var uri = new Uri(dbConn);
+        var userInfo = uri.UserInfo.Split(':');
+        var user = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+        var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+        var db = uri.AbsolutePath.TrimStart('/');
+        var port = uri.Port > 0 ? uri.Port : 5432;
+        dbConn = $"Host={uri.Host};Port={port};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true";
+    } catch { }
+}
+
+builder.Services.AddDbContext<AppDb>(o => o.UseNpgsql(dbConn));
 builder.Services.AddMemoryCache(o => o.SizeLimit = 1000);
 builder.Services.AddHttpClient();
 
-// Redis registration
-var redisConn = builder.Configuration.GetConnectionString("Redis");
+// Redis registration (supports Upstash TLS, redis:// URI, or UPSTASH_REDIS_REST_URL/TOKEN)
+var redisConn = builder.Configuration.GetConnectionString("Redis")
+                ?? builder.Configuration["REDIS_URL"]
+                ?? builder.Configuration["RedisUrl"];
+
+if (string.IsNullOrWhiteSpace(redisConn)) {
+    var upstashUrl = builder.Configuration["UPSTASH_REDIS_REST_URL"] ?? builder.Configuration["Upstash:RedisRestUrl"];
+    var upstashToken = builder.Configuration["UPSTASH_REDIS_REST_TOKEN"] ?? builder.Configuration["Upstash:RedisRestToken"];
+    if (!string.IsNullOrWhiteSpace(upstashUrl) && !string.IsNullOrWhiteSpace(upstashToken)) {
+        try {
+            var host = new Uri(upstashUrl).Host;
+            redisConn = $"{host}:6379,password={upstashToken},ssl=true,abortConnect=false";
+        } catch { }
+    }
+} else if (redisConn.StartsWith("redis://", StringComparison.OrdinalIgnoreCase) || redisConn.StartsWith("rediss://", StringComparison.OrdinalIgnoreCase)) {
+    try {
+        var uri = new Uri(redisConn);
+        var isSsl = redisConn.StartsWith("rediss://", StringComparison.OrdinalIgnoreCase);
+        var userInfo = uri.UserInfo.Split(':');
+        var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : userInfo[0];
+        var port = uri.Port > 0 ? uri.Port : 6379;
+        redisConn = $"{uri.Host}:{port},password={pass},ssl={isSsl.ToString().ToLowerInvariant()},abortConnect=false";
+    } catch { }
+}
+
 if (!string.IsNullOrWhiteSpace(redisConn)) {
     try {
         var muxer = ConnectionMultiplexer.Connect(redisConn);
