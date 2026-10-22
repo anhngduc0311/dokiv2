@@ -2,6 +2,7 @@ import type { MangaCard, CatalogPage, ChapterCard } from './catalog-service';
 
 const API = 'https://api.mangadex.org';
 export interface CatalogFilters {
+  source?: string;
   q?: string; author?: string; genre?: string; status?: string; country?: string;
   demographic?: string; language?: string; sort?: string; year?: number;
   page?: number; pageSize?: number;
@@ -58,7 +59,7 @@ export function mapMangaDexManga(item: any): MangaCard {
   const encoded = Buffer.from(coverUrl).toString('base64url');
   const chapter = Number.parseFloat(attr.lastChapter || '0') || 0;
   return {
-    id: item.id, title,
+    id: item.id, title, source: 'mangadex',
     alternativeTitle: altTitles.filter(t => t !== title).slice(0, 3).join(' / '),
     author: [...new Set(rels.filter((r: any) => ['author', 'artist'].includes(r.type)).map((r: any) => r.attributes?.name).filter(Boolean))].join(' / ') || 'Chưa rõ',
     cover: coverUrl ? 'https://services.f-ck.me/v1/image/' + encoded : '/cover-placeholder.svg',

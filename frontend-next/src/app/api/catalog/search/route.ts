@@ -4,6 +4,7 @@ import { searchCatalog } from '@/lib/catalog-service';
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
+  const source = searchParams.get('source') || '';
   const q = searchParams.get('q') || '';
   const author = searchParams.get('author') || '';
   const genre = searchParams.get('genre') || '';
@@ -17,6 +18,7 @@ export async function GET(req: Request) {
   const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : 24;
 
   const data = await searchCatalog({
+    source,
     q,
     author,
     genre,

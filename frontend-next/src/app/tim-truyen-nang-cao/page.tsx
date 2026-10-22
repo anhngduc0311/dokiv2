@@ -26,6 +26,7 @@ function SearchContent() {
   const epochRef = useRef(0);
 
   const getDefaults = () => ({
+    source: searchParams.get('source') || '',
     q: searchParams.get('q') || '',
     author: searchParams.get('author') || '',
     genre: searchParams.get('genre') || '',
@@ -96,6 +97,7 @@ function SearchContent() {
       sessionStorage.removeItem('last_manga_id');
     }
     const empty = {
+      source: '',
       q: '',
       author: '',
       genre: '',
@@ -269,6 +271,20 @@ function SearchContent() {
         {expanded && (
           <div className="filter-grid">
             <label>
+              <span>Nguồn truyện</span>
+              <select name="source" value={form.source} onChange={e => {
+                const source = e.target.value;
+                setForm(source === 'truyengg' ? { ...form, source, author: '', year: '', language: 'vi',
+                  status: ['hiatus', 'cancelled'].includes(form.status) ? '' : form.status,
+                  sort: ['rating', 'chapters', 'title'].includes(form.sort) ? 'latest' : form.sort
+                } : { ...form, source });
+              }}>
+                <option value="">Tất cả nguồn</option>
+                <option value="mangadex">MangaDex</option>
+                <option value="truyengg">TruyenGG</option>
+              </select>
+            </label>
+            <label>
               <span>Thể loại truyện</span>
               <select
                 name="genre"
@@ -294,8 +310,8 @@ function SearchContent() {
                 <option value="">Tất cả tình trạng</option>
                 <option value="ongoing">Đang tiến hành</option>
                 <option value="completed">Đã hoàn thành</option>
-                <option value="hiatus">Tạm ngưng</option>
-                <option value="cancelled">Đã hủy</option>
+                <option value="hiatus" disabled={form.source === 'truyengg'}>Tạm ngưng</option>
+                <option value="cancelled" disabled={form.source === 'truyengg'}>Đã hủy</option>
               </select>
             </label>
 
@@ -337,7 +353,7 @@ function SearchContent() {
                 onChange={e => setForm({ ...form, language: e.target.value })}
               >
                 <option value="vi">🇻🇳 Tiếng Việt</option>
-                <option value="en">🇬🇧 Tiếng Anh</option>
+                <option value="en" disabled={form.source === 'truyengg'}>🇬🇧 Tiếng Anh</option>
               </select>
             </label>
 
@@ -348,6 +364,7 @@ function SearchContent() {
                 min="1950"
                 max="2030"
                 name="year"
+                disabled={form.source === 'truyengg'}
                 value={form.year}
                 onChange={e => setForm({ ...form, year: e.target.value })}
                 placeholder="Ví dụ: 2024"
@@ -367,9 +384,9 @@ function SearchContent() {
               <option value="latest">Mới cập nhật chap</option>
               <option value="new">Truyện mới đăng</option>
               <option value="hot">Theo dõi nhiều nhất</option>
-              <option value="rating">Đánh giá cao nhất</option>
-              <option value="chapters">Nhiều chap nhất</option>
-              <option value="title">Bảng chữ cái (A-Z)</option>
+              <option value="rating" disabled={form.source === 'truyengg'}>Đánh giá cao nhất</option>
+              <option value="chapters" disabled={form.source === 'truyengg'}>Nhiều chap nhất</option>
+              <option value="title" disabled={form.source === 'truyengg'}>Bảng chữ cái (A-Z)</option>
             </select>
           </label>
 

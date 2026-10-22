@@ -9,6 +9,7 @@ export interface Chapter {
 }
 
 export interface Manga {
+  source?: 'mangadex' | 'truyengg';
   id: string;
   title: string;
   alternativeTitle: string;

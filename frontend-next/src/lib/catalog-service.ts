@@ -2,6 +2,8 @@ import { sql, ensureDbInitialized } from './db';
 import { cacheGet, cacheSet } from './redis';
 import { catalogPagination, searchMangaDex, mangaDexGet, mapMangaDexManga, enrichMangaDexCards } from './mangadex-catalog';
 import type { CatalogFilters } from './mangadex-catalog';
+import { ggTotal, ggWindow, getGgDetail, getGgChapters, getGgReader, getGgTags } from './truyengg-catalog';
+import { sourceWindow, interleaveSourceItems } from './catalog-pagination';
 
 const MANGADEX_API = 'https://api.mangadex.org';
 
@@ -18,6 +20,7 @@ export interface ChapterCard {
 }
 
 export interface MangaCard {
+  source?: 'mangadex' | 'truyengg';
   id: string;
   slug?: string;
   title: string;
@@ -142,7 +145,7 @@ export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage
     language: params.language === 'en' ? 'en' : 'vi',
     page: pagination.page, pageSize: pagination.pageSize
   };
-  const cacheKey = 'catalog:browse:v2:' + JSON.stringify(filters);
+  const cacheKey = 'catalog:browse:multi:v1:' + JSON.stringify(filters);
   const cached = await cacheGet<CatalogPage>(cacheKey);
   if (cached) return cached;
   let remoteGenre = filters.genre;
@@ -150,22 +153,48 @@ export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage
   if (filters.genre) {
     const tags = await getTags();
     genreName = tags.find(t => t.id === filters.genre)?.name || filters.genre;
-    const remoteTags = await getMangaDexTags();
+    const remoteTags = await getMangaDexTags().catch(() => []);
     remoteGenre = remoteTags.find(t => t.id === filters.genre || t.name.toLowerCase() === genreName.toLowerCase())?.id;
   }
-  const local = await localCatalog(filters, genreName);
+  const local = filters.source ? [] : await localCatalog(filters, genreName);
   const localPage = local.slice(pagination.offset, pagination.offset + pagination.pageSize);
   const remoteOffset = Math.max(0, pagination.offset - local.length);
   const needed = pagination.pageSize - localPage.length;
-  const remote = filters.genre && !remoteGenre
-    ? { items: [], total: 0 }
-    : await searchMangaDex({ ...filters, genre: remoteGenre }, remoteOffset, Math.max(1, needed));
+  const remote = await federatedCatalog(filters, remoteGenre, genreName, remoteOffset, needed);
   const result: CatalogPage = {
     items: [...localPage, ...remote.items.slice(0, needed)], total: local.length + remote.total,
     page: pagination.page, pageSize: pagination.pageSize
   };
   await cacheSet(cacheKey, result, 120);
   return result;
+}
+
+async function federatedCatalog(filters: CatalogFilters, remoteGenre: string | undefined, genreName: string, offset: number, size: number) {
+  const { page: _page, pageSize: _size, source, ...criteria } = filters;
+  const mdFilters = { ...criteria, genre: remoteGenre };
+  const ggFilters = { ...criteria, genreName };
+  const mdEnabled = source !== 'truyengg' && (!filters.genre || !!remoteGenre);
+  const ggEnabled = source !== 'mangadex';
+  const countResults = await Promise.allSettled([
+    (async () => {
+      if (!mdEnabled) return 0;
+      const key = 'catalog:md:count:v1:' + JSON.stringify(mdFilters);
+      const cached = await cacheGet<number>(key); if (cached !== null) return cached;
+      const result = await searchMangaDex(mdFilters, 0, 0);
+      await cacheSet(key, result.total, 300); return result.total;
+    })(),
+    ggEnabled ? ggTotal(ggFilters) : Promise.resolve(0)
+  ]);
+  if (countResults.every(r => r.status === 'rejected')) throw (countResults[0] as PromiseRejectedResult).reason;
+  if (source === 'truyengg' && countResults[1].status === 'rejected') throw countResults[1].reason;
+  if (source === 'mangadex' && countResults[0].status === 'rejected') throw countResults[0].reason;
+  const counts = countResults.map(r => r.status === 'fulfilled' ? r.value : 0) as [number, number];
+  const window = sourceWindow(counts, offset, size);
+  const [md, gg] = await Promise.all([
+    window.limits[0] ? searchMangaDex(mdFilters, window.offsets[0], window.limits[0]).then(r => r.items) : Promise.resolve([]),
+    window.limits[1] ? ggWindow(ggFilters, window.offsets[1], window.limits[1]) : Promise.resolve([])
+  ]);
+  return { items: interleaveSourceItems([md, gg], window.order), total: window.total };
 }
 
 export async function getHomeCatalog(page = 1, pageSize = 28): Promise<CatalogPage> {
@@ -178,7 +207,7 @@ export async function getFeaturedCatalog(limit = 20, page = 1): Promise<CatalogP
 
 // 4. MANGA DETAIL
 export async function getMangaDetail(id: string): Promise<MangaCard | null> {
-  const cacheKey = 'manga:detail:source:v2:' + id;
+  const cacheKey = 'manga:detail:source:v3:' + id;
   const cached = await cacheGet<MangaCard>(cacheKey);
   if (cached) return cached;
   let local: any;
@@ -198,6 +227,12 @@ export async function getMangaDetail(id: string): Promise<MangaCard | null> {
   } catch {
     // Source stories can still be read while the local database is unavailable.
   }
+  const gg = await getGgDetail(id);
+  if (gg) {
+    await rememberManga(gg.manga);
+    await cacheSet(cacheKey, gg.manga, 300);
+    return gg.manga;
+  }
   try {
     const data = await mangaDexGet('/manga/' + encodeURIComponent(id) + '?includes[]=cover_art&includes[]=author&includes[]=artist');
     const manga = mapMangaDexManga(data.data);
@@ -216,6 +251,8 @@ export async function getMangaChapters(
   page: number = 1,
   ascending: boolean = false
 ): Promise<{ items: ChapterCard[]; total: number; page: number; pageSize: number }> {
+  const gg = await getGgChapters(mangaId, ascending);
+  if (gg) return gg;
   await ensureDbInitialized();
 
   // Try DB chapters
@@ -285,6 +322,8 @@ export async function getMangaChapters(
 
 // 6. CHAPTER READER
 export async function getChapterReader(chapterId: string): Promise<ReaderData | null> {
+  const gg = await getGgReader(chapterId);
+  if (gg) return gg;
   await ensureDbInitialized();
 
   // Try DB chapter
@@ -429,16 +468,17 @@ async function getMangaDexTags(): Promise<{ id: string; name: string }[]> {
 }
 
 export async function getTags(): Promise<{ id: string; name: string }[]> {
-  const [remote, local] = await Promise.allSettled([
+  const [remote, local, gg] = await Promise.allSettled([
     getMangaDexTags(),
     (async () => {
       await ensureDbInitialized();
       const rows = await sql`SELECT "Id", "Name" FROM "TaxonomyItems" WHERE "Type" = 'genre' ORDER BY "Name" ASC`;
       return rows.map((r: any) => ({ id: r.Id, name: r.Name as string }));
-    })()
+    })(),
+    getGgTags()
   ]);
   const tags = new Map<string, { id: string; name: string }>();
-  for (const result of [remote, local]) {
+  for (const result of [remote, gg, local]) {
     if (result.status !== 'fulfilled') continue;
     for (const tag of result.value) if (!tags.has(tag.name.toLowerCase())) tags.set(tag.name.toLowerCase(), tag);
   }

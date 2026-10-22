@@ -78,9 +78,9 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
         {(manga.contentRating === 'erotica' || manga.contentRating === 'pornographic') && (
           <span className="age-label">18+</span>
         )}
-        <span className="cover-rating">
-          <Icon name="star" /> {manga.rating ? manga.rating.toFixed(1) : '0.0'}
-        </span>
+        {manga.rating > 0 && <span className="cover-rating">
+          <Icon name="star" /> {manga.rating.toFixed(1)}
+        </span>}
         <span className="cover-read" aria-hidden="true">
           <Icon name="book" />
         </span>
@@ -100,7 +100,7 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
           </Link>
         </h3>
         <p className="card-origin">
-          {originText} · {manga.year || 'DokiTruyen'}
+          {originText} · {manga.source === 'truyengg' ? 'TruyenGG' : manga.year || 'DokiTruyen'}
         </p>
       </div>
       <div className="mini-chapters">
