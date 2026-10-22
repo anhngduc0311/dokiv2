@@ -45,7 +45,10 @@ export function rankSpotlightCandidates(
 ): Manga[] {
   const unique = new Map<string, Manga>();
   const score = (m: Manga) => {
-    const updated = Math.max(...m.chapters.map(c => Date.parse(c.publishedAt) || 0));
+    const chapters = Array.isArray(m?.chapters) ? m.chapters : [];
+    const updated = chapters.length > 0
+      ? Math.max(...chapters.map(c => Date.parse(c.publishedAt) || 0))
+      : (Date.parse(m?.updatedAt) || 0);
     const days = Math.max(0, (now - updated) / 86400000);
     return (
       Math.max(0, Math.min(10, m.rating || 0)) * 4 +
@@ -55,11 +58,13 @@ export function rankSpotlightCandidates(
     );
   };
   for (const m of items) {
+    if (!m) continue;
+    const chapters = Array.isArray(m.chapters) ? m.chapters : [];
     if (
       !m.cover ||
       m.cover.includes('cover-placeholder') ||
-      !m.chapters.some(c => c.language === 'vi') ||
-      ['erotica', 'pornographic'].includes(m.contentRating)
+      (chapters.length > 0 && !chapters.some(c => c.language === 'vi')) ||
+      ['erotica', 'pornographic'].includes(m.contentRating || '')
     )
       continue;
     if (images && (!images[m.id] || bannerImageScore(images[m.id]) === 0)) continue;

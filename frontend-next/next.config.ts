@@ -3,9 +3,6 @@ import type { NextConfig } from 'next';
 const apiBaseUrl = process.env.API_BASE_URL ?? 'http://localhost:5080';
 
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [{ source: '/api/:path*', destination: apiBaseUrl + '/api/:path*' }];
-  },
   async redirects() {
     return [
       { source: '/nettrom', destination: '/', permanent: true },

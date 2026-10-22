@@ -385,7 +385,7 @@ function HomeContent() {
                 <Link
                   className="spotlight-read"
                   href={
-                    currentSpotlight.chapters.length
+                    currentSpotlight.chapters && currentSpotlight.chapters.length > 0
                       ? `/chuong/${currentSpotlight.chapters[0].id}`
                       : `/truyen-tranh/${currentSpotlight.id}`
                   }
