@@ -122,6 +122,11 @@ export function parseGgDetail(html: string, path: string): { manga: MangaCard; c
     if (label.includes('Theo dõi')) manga.follows = number(value);
     if (label.includes('Lượt xem')) manga.views = number(value);
   });
+  // Credits in the description often contain both the original-script and Romanized names.
+  const credits = manga.description.split(/\r?\n/).map(line => line.trim())
+    .filter(line => /^(?:Tác giả(?: nguyên tác)?|Họa sĩ|Biên kịch(?: \/ chuyển thể)?):/i.test(line))
+    .map(line => line.replace(/^[^:]+:\s*/, ''));
+  if (credits.length) manga.author = [manga.author, ...credits].join(' / ');
   manga.rating = Number($('[itemprop="ratingValue"]').first().attr('content') || $('[itemprop="ratingValue"]').first().text()) || 0;
   const chapters: ChapterCard[] = []; const seen = new Set<string>();
   $('.works-chapter-item').each((_, el) => {
@@ -133,7 +138,14 @@ export function parseGgDetail(html: string, path: string): { manga: MangaCard; c
   chapters.sort((a, b) => b.number - a.number || b.publishedAt.localeCompare(a.publishedAt));
   manga.chapters = chapters.slice(0, 3); manga.totalChapters = manga.chaptersCount = chapters.length;
   if (chapters[0]) manga.updatedAt = chapters[0].publishedAt;
-  setTaxonomy(manga); return { manga, chapters, refs };
+  setTaxonomy(manga, '');
+  if (!manga.country) {
+    const classification = manga.description.match(/^Thể loại:\s*(.+)$/im)?.[1] || '';
+    if (/\bmanhwa\b/i.test(classification)) manga.country = 'ko';
+    else if (/\bmanhua\b/i.test(classification)) manga.country = 'zh';
+    else if (/\bmanga\b/i.test(classification)) manga.country = 'ja';
+  }
+  return { manga, chapters, refs };
 }
 
 export function parseGgReaderPages(html: string): string[] {

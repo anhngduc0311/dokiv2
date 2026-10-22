@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { normalizeStoryTitle, sameStoryTitle, canLinkChapterSource, mergeChapterSources, sourceChapterAliases, uniqueChapterSourceMatch } from '../frontend-next/src/lib/chapter-source-sync.ts';
+import { normalizeStoryTitle, sameStoryTitle, canLinkChapterSource, mergeChapterSources, sourceChapterAliases, uniqueChapterSourceMatch, chapterSourceParts } from '../frontend-next/src/lib/chapter-source-sync.ts';
 import { ggId } from '../frontend-next/src/lib/truyengg-parser.ts';
 const story = (id, title, overrides = {}) => ({ id,title,alternativeTitle:'',author:'Igarashi Masakuni',country:'ja',...overrides });
 const manga = story('md','Mayonaka Heart Tune',{alternativeTitle:'真夜中ハートチューン / Tune In to the Midnight Heart'});
@@ -28,3 +28,25 @@ assert.notEqual(aliases[0].id,sourceChapterAliases('other-md',gg,ggId)[0].id,'Di
 const position = merged.findIndex(c=>c.number===70);
 assert.equal(merged[position+1].id,'md-71','Navigate directly from TruyenGG chapter 70 to MangaDex chapter 71');
 console.log('Chapter source matching, supplementation, ID preservation and cross-source navigation checks passed');
+
+const solo = story('32d76d19-8a05-4db0-9fc2-e0b0648fe9d0', 'Tôi Thăng Cấp Một Mình', {
+  alternativeTitle:'Solo Leveling / 나 혼자만 레벨업', country:'ko', author:'Chugong (추공) / Jang Sung-Rak (장성락)'
+});
+assert.equal(canLinkChapterSource(solo,story('gg',solo.title,{country:'ko',author:'Jang Sung Lak / 추공 / Chugong'})),true);
+assert.equal(canLinkChapterSource(solo,story('gg',solo.title,{country:'',author:'Chugong'})),true,'Missing country metadata must not fabricate a conflicting country');
+assert.equal(canLinkChapterSource(solo,story('gg',solo.title,{country:'ja',author:'Chugong'})),false);
+assert.equal(sameStoryTitle(solo,story('gg','Solo Leveling Ragnarok')),false);
+const parts = chapterSourceParts(solo.id,'ef65c99b-a3c2-4cf1-3f86-629eafdb2648');
+for (const part of parts.filter(p=>p.path)) assert.equal(ggId('truyengg:manga:'+part.path.split('/').pop()),part.sourceId,'Verified editions resolve without a previous catalog search');
+const lengths = [110,69,21];
+const combined = parts.flatMap((part,i)=>sourceChapterAliases(solo.id,
+  Array.from({length:lengths[i]},(_,n)=>chapter(part.sourceId+'-'+(n+1),n+1,part.sourceId)),ggId,part.offset,part.label));
+assert.deepEqual(mergeChapterSources([],combined).map(c=>c.number),Array.from({length:200},(_,i)=>i+1));
+assert.equal(new Set(combined.map(c=>c.id)).size,200);
+assert.ok(combined.every(c=>c.mangaId===solo.id));
+assert.equal(combined[110].number,111);
+assert.equal(combined[179].number,180);
+assert.match(combined[179].title,/Chương 180.*SS3/);
+assert.equal(mergeChapterSources([chapter('md-111',111,solo.id)],combined).find(c=>c.number===111).id,'md-111');
+assert.equal(chapterSourceParts('unrelated',parts[0].sourceId).length,1,'Do not infer arbitrary sequels as continuous editions');
+console.log('Verified Solo Leveling season boundaries and metadata aliases passed');

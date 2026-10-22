@@ -12,7 +12,7 @@ export function sameStoryTitle(a: Pick<MangaCard, 'title' | 'alternativeTitle'>,
   const keys = titleKeys(a); return [...titleKeys(b)].some(key => keys.has(key));
 }
 function knownAuthors(author: string): string[] {
-  return author.split(/[/;|]/).map(name => name.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[đĐ]/g, 'd').toLowerCase()
+  return author.split(/[/;|()]/).map(name => name.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[đĐ]/g, 'd').toLowerCase()
     .split(/[^\p{L}\p{N}]+/u).filter(Boolean).sort().join(' '))
     .filter(name => name && !['cap dang nhat', 'chua ro', 'unknown', 'updating', 'chua gia ro tac'].includes(name));
 }
@@ -33,8 +33,26 @@ export function mergeChapterSources(primary: ChapterCard[], supplemental: Chapte
   for (const chapter of primary) selected.set(key(chapter), chapter);
   return [...selected.values()].sort((a, b) => a.number - b.number || a.publishedAt.localeCompare(b.publishedAt));
 }
-export function sourceChapterAliases(canonicalId: string, chapters: ChapterCard[], identify: (key: string) => string): ChapterCard[] {
-  return chapters.map(chapter => ({ ...chapter, id: identify('truyengg:alias:' + canonicalId + ':' + chapter.id), mangaId: canonicalId }));
+export function sourceChapterAliases(canonicalId: string, chapters: ChapterCard[], identify: (key: string) => string, offset = 0, label = ''): ChapterCard[] {
+  return chapters.map(chapter => ({ ...chapter,
+    id: identify('truyengg:alias:' + canonicalId + ':' + chapter.id), mangaId: canonicalId,
+    number: chapter.number + offset,
+    title: offset ? 'Chương ' + (chapter.number + offset) + (label ? ' · ' + label + ' - ' + chapter.title : '') : chapter.title
+  }));
+}
+
+export interface ChapterSourcePart { sourceId: string; offset: number; label?: string; path?: string }
+export function chapterSourceParts(canonicalId: string, matchedSourceId: string): ChapterSourcePart[] {
+  // Verified source editions: TruyenGG resets numbering after 110 chapters and again after 69.
+  // Keep these explicit; never infer that an arbitrary sequel belongs to the same MangaDex entry.
+  if (canonicalId === '32d76d19-8a05-4db0-9fc2-e0b0648fe9d0' && matchedSourceId === 'ef65c99b-a3c2-4cf1-3f86-629eafdb2648') {
+    return [
+      { sourceId: matchedSourceId, offset: 0 },
+      { sourceId: '4fcbafa7-2904-9abb-e354-5e551398d436', offset: 110, label: 'SS2', path: '/truyen-tranh/toi-thang-cap-mot-minh-ss2-10087' },
+      { sourceId: 'a6cd5fbb-3666-5028-8e69-8e3cc1b3f0d5', offset: 179, label: 'SS3', path: '/truyen-tranh/solo-leveling-ss3-13597' }
+    ];
+  }
+  return [{ sourceId: matchedSourceId, offset: 0 }];
 }
 
 export function uniqueChapterSourceMatch(manga: MangaCard, candidates: MangaCard[]): MangaCard | null {

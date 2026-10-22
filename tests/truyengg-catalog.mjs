@@ -41,3 +41,10 @@ for (const counts of [[0, 0], [8, 0], [0, 9], [3, 12], [15, 2], [6, 6]]) {
   }
 }
 console.log('TruyenGG parser, compatibility and federated pagination checks passed');
+
+const credited = parseGgDetail('<h1 itemprop="name">Tôi Thăng Cấp Một Mình</h1><div class="story-detail-info">Tên gốc: 나 혼자만 레벨업\nTác giả nguyên tác: 추공 / Chugong\nHọa sĩ: 장성락 / Jang Sung-rak\nThể loại: manhwa, hành động</div>' ,'/truyen-tranh/solo-test');
+assert.equal(credited.manga.country,'ko');
+assert.match(credited.manga.author,/Chugong/);
+assert.match(credited.manga.author,/Jang Sung-rak/);
+assert.equal(detail.manga.country,'','Unknown country stays unknown until metadata identifies it');
+console.log('TruyenGG original credits and country metadata checks passed');
