@@ -2,9 +2,13 @@ import { sql, ensureDbInitialized } from './db';
 import { cacheGet, cacheSet } from './redis';
 import { catalogPagination, searchMangaDex, mangaDexGet, mapMangaDexManga, enrichMangaDexCards } from './mangadex-catalog';
 import type { CatalogFilters } from './mangadex-catalog';
-import { ggTotal, ggWindow, getGgDetail, getGgChapters, getGgReader, getGgTags } from './truyengg-catalog';
+import { ggTotal, ggWindow, getGgDetail, getGgChapters, getGgReader, getGgTags, searchGgTitles } from './truyengg-catalog';
 import { sourceWindow, interleaveSourceItems } from './catalog-pagination';
 import { loadMangaDexChapterFeed, readerNavigation, readMangaDexChapter } from './mangadex-reader';
+import { uniqueChapterSourceMatch, sameStoryTitle, mergeChapterSources, sourceChapterAliases } from './chapter-source-sync';
+import { findChapterSourceLink, saveChapterSourceLink } from './chapter-source-links';
+import { saveGgReferences, findGgReference } from './source-references';
+import { ggId } from './truyengg-parser';
 
 
 export interface ChapterCard {
@@ -254,6 +258,59 @@ async function mangaDexChapterFeed(id: string, language: string): Promise<Chapte
   return items;
 }
 
+const chapterSyncRequests = new Map<string, Promise<ChapterCard[]>>();
+async function matchingGgSource(manga: MangaCard) {
+  const linked = await findChapterSourceLink(manga.id);
+  if (linked) return getGgDetail(linked);
+  const missKey = 'chapter-source:miss:v1:' + manga.id + ':' + manga.title;
+  if (await cacheGet(missKey)) return null;
+  const queries = [...new Set([manga.title, ...manga.alternativeTitle.split(/[;/|\n]/)].map(t => t.trim()).filter(t => t.length >= 4))].slice(0, 4);
+  const candidates = new Map<string, MangaCard>();
+  for (const query of queries) {
+    for (const candidate of await searchGgTitles(query)) {
+      if (sameStoryTitle(manga, candidate)) candidates.set(candidate.id, candidate);
+    }
+    if (candidates.size) break;
+  }
+  // Ambiguous editions and name collisions require a deliberate match instead of a guess.
+  if (candidates.size > 3) { await cacheSet(missKey, true, 300); return null; }
+  const details = await Promise.all([...candidates.keys()].map(id => getGgDetail(id)));
+  const candidate = uniqueChapterSourceMatch(manga, details.flatMap(detail => detail ? [detail.manga] : []));
+  const match = candidate ? details.find(detail => detail?.manga.id === candidate.id) : null;
+  if (!match) { await cacheSet(missKey, true, 300); return null; }
+  await saveChapterSourceLink(manga.id, match.manga.id, manga.title);
+  return match;
+}
+
+async function canonicalChapterFeed(id: string, language: string): Promise<ChapterCard[]> {
+  if (language !== 'vi') return mangaDexChapterFeed(id, language);
+  const cached = await cacheGet<ChapterCard[]>('catalog:merged-chapters:v1:' + id);
+  if (cached) return cached;
+  const pending = chapterSyncRequests.get(id); if (pending) return pending;
+  const request = (async () => {
+    const primary = readerNavigation(await mangaDexChapterFeed(id, language));
+    try {
+      const manga = await getMangaDetail(id);
+      if (!manga) return primary;
+      const source = await matchingGgSource(manga);
+      if (!source) return primary;
+      const aliases = sourceChapterAliases(id, source.chapters, ggId);
+      const aliasIds = new Map(source.chapters.map((chapter, i) => [chapter.id, aliases[i].id]));
+      await saveGgReferences(source.refs.filter(ref => ref.kind === 'chapter' && aliasIds.has(ref.id)).map(ref => ({
+        ...ref, id: aliasIds.get(ref.id)!, mangaId: id
+      })));
+      const merged = mergeChapterSources(primary, aliases);
+      await cacheSet('catalog:merged-chapters:v1:' + id, merged, 300);
+      return merged;
+    } catch {
+      // A supplemental source outage must not hide readable MangaDex chapters.
+      return primary;
+    }
+  })();
+  chapterSyncRequests.set(id, request);
+  try { return await request; } finally { chapterSyncRequests.delete(id); }
+}
+
 // 5. MANGA CHAPTERS
 export async function getMangaChapters(
   mangaId: string,
@@ -298,13 +355,23 @@ export async function getMangaChapters(
     };
   }
 
-  const chapters = readerNavigation(await mangaDexChapterFeed(mangaId, language));
+  const chapters = readerNavigation(await canonicalChapterFeed(mangaId, language));
   const items = ascending ? chapters : [...chapters].reverse();
   return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
 }
 
 // 6. CHAPTER READER
 export async function getChapterReader(chapterId: string): Promise<ReaderData | null> {
+  const ref = await findGgReference(chapterId, 'chapter');
+  const linkedSource = ref ? await findChapterSourceLink(ref.mangaId).catch(() => null) : null;
+  if (ref && linkedSource) {
+    const [reader, manga, navigation] = await Promise.all([
+      getGgReader(chapterId, linkedSource), getMangaDetail(ref.mangaId), canonicalChapterFeed(ref.mangaId, 'vi')
+    ]);
+    if (!reader || !manga) return null;
+    const chapter = { ...reader.chapter, id: chapterId, mangaId: ref.mangaId };
+    return { ...reader, chapter, manga, navigation: readerNavigation(navigation, chapter) };
+  }
   const gg = await getGgReader(chapterId);
   if (gg) return gg;
   await ensureDbInitialized();
@@ -376,7 +443,7 @@ export async function getChapterReader(chapterId: string): Promise<ReaderData | 
   return readMangaDexChapter(chapterId, {
     get: mangaDexGet,
     manga: getMangaDetail,
-    chapters: mangaDexChapterFeed
+    chapters: canonicalChapterFeed
   });
 }
 

@@ -690,6 +690,7 @@ function MangaDetailContent() {
                       >
                         <div className="chapter-main-info">
                           <span className="chapter-title-text">{c.title}</span>
+                          {c.group === 'TruyenGG' && <span className="chapter-source-badge">TruyenGG</span>}
                         </div>
                         <div className="chapter-meta-right">
                           <time>{ago(c.publishedAt)}</time>

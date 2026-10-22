@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { cacheGet, cacheSet } from './redis';
 import { saveGgReferences, findGgReference } from './source-references';
-import { GG_ORIGIN, parseGgGrid, parseGgSearch, parseGgDetail, parseGgReaderPages, ggGenres } from './truyengg-parser';
+import { GG_ORIGIN, ggId, parseGgGrid, parseGgSearch, parseGgDetail, parseGgReaderPages, ggGenres } from './truyengg-parser';
 import type { CatalogFilters } from './mangadex-catalog';
 import type { MangaCard, ReaderData, ChapterCard } from './catalog-service';
-import type { GgGrid } from './truyengg-parser';
+import type { GgGrid, GgReference } from './truyengg-parser';
 
 const pending = new Map<string, Promise<string>>();
 const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36', Referer: GG_ORIGIN + '/' };
@@ -120,7 +120,7 @@ export async function ggWindow(filters: GgFilters, offset: number, limit: number
   return pages.flatMap(p => p.items).slice(offset % size, offset % size + limit);
 }
 
-export async function getGgDetail(id: string): Promise<{ manga: MangaCard; chapters: ChapterCard[] } | null> {
+export async function getGgDetail(id: string): Promise<{ manga: MangaCard; chapters: ChapterCard[]; refs: GgReference[] } | null> {
   const ref = await findGgReference(id, 'manga'); if (!ref) return null;
   const detail = parseGgDetail(await ggHtml(ref.path), ref.path);
   await saveGgReferences(detail.refs); return detail;
@@ -130,13 +130,18 @@ export async function getGgChapters(id: string, ascending = false) {
   const items = ascending ? [...detail.chapters].reverse() : detail.chapters;
   return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
 }
-export async function getGgReader(id: string): Promise<ReaderData | null> {
+export async function getGgReader(id: string, sourceMangaId?: string): Promise<ReaderData | null> {
   const ref = await findGgReference(id, 'chapter'); if (!ref) return null;
-  const [detail, html] = await Promise.all([getGgDetail(ref.mangaId), ggHtml(ref.path)]);
+  const [detail, html] = await Promise.all([getGgDetail(sourceMangaId || ref.mangaId), ggHtml(ref.path)]);
   if (!detail) throw new Error('Không tìm thấy truyện TruyenGG.');
   const pages = parseGgReaderPages(html);
   if (!pages.length) throw new Error('TruyenGG chưa cung cấp ảnh cho chương này.');
-  const chapter = detail.chapters.find(c => c.id === id);
+  const chapter = detail.chapters.find(c => c.id === (sourceMangaId ? ggId('truyengg:chap:' + ref.path) : id));
   if (!chapter) throw new Error('Chương không còn trong danh sách TruyenGG.');
   return { chapter, manga: detail.manga, pages, dataSaverPages: pages, externalUrl: null, navigation: [...detail.chapters].reverse() };
+}
+
+// Title suggestions do not invent chapters. Callers verify the full detail before linking catalogs.
+export async function searchGgTitles(query: string): Promise<MangaCard[]> {
+  return suggestions({ q: query, language: 'vi' });
 }
