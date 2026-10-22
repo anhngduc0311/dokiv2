@@ -49,7 +49,7 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
     setLoaded(true);
   };
 
-  const originText = manga.country === 'ko' ? 'Manhwa' : manga.country === 'cn' ? 'Manhua' : 'Manga';
+  const originText = manga.country === 'ko' ? 'Manhwa' : ['cn', 'zh', 'zh-hk'].includes(manga.country) ? 'Manhua' : 'Manga';
 
   return (
     <article

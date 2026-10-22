@@ -373,7 +373,7 @@ function HomeContent() {
                 <span>
                   {currentSpotlight.country === 'ko'
                     ? 'Manhwa'
-                    : currentSpotlight.country === 'cn'
+                    : ['cn', 'zh', 'zh-hk'].includes(currentSpotlight.country)
                     ? 'Manhua'
                     : 'Manga'}
                 </span>

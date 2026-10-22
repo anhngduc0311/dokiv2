@@ -1,5 +1,7 @@
 import { sql, ensureDbInitialized } from './db';
 import { cacheGet, cacheSet } from './redis';
+import { catalogPagination, searchMangaDex, mangaDexGet, mapMangaDexManga, enrichMangaDexCards } from './mangadex-catalog';
+import type { CatalogFilters } from './mangadex-catalog';
 
 const MANGADEX_API = 'https://api.mangadex.org';
 
@@ -54,71 +56,6 @@ export interface ReaderData {
   navigation: ChapterCard[];
 }
 
-// Helper to safely format cover image
-function formatCoverUrl(mangaId: string, fileName?: string): string {
-  if (!fileName) return '/cover-placeholder.svg';
-  const rawUrl = `https://mangadex.org/covers/${mangaId}/${fileName}.256.jpg`;
-  // Use public proxy URL or direct
-  const b64 = Buffer.from(rawUrl).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
-  return `https://services.f-ck.me/v1/image/${b64}`;
-}
-
-// Convert MangaDex API object to MangaCard
-function mapMangaDexManga(item: any): MangaCard {
-  const attr = item.attributes || {};
-  const rels = item.relationships || [];
-  const id = item.id;
-
-  const altTitlesList: string[] = (attr.altTitles || [])
-    .flatMap((x: any) => Object.values(x || {}))
-    .filter(Boolean) as string[];
-
-  const titleVi = attr.altTitles?.find((x: any) => x?.vi)?.vi;
-  const titleEn = attr.title?.vi || attr.title?.en || Object.values(attr.title || {})[0] || '';
-  const displayTitle = titleVi || titleEn || altTitlesList[0] || 'Chưa có tiêu đề';
-
-  const altTitleDisplay = altTitlesList.filter(t => t !== displayTitle).slice(0, 3).join(' / ');
-
-  const coverRel = rels.find((r: any) => r.type === 'cover_art');
-  const coverFileName = coverRel?.attributes?.fileName;
-  const cover = formatCoverUrl(id, coverFileName);
-
-  const authorRels = rels
-    .filter((r: any) => r.type === 'author' || r.type === 'artist')
-    .map((r: any) => r.attributes?.name)
-    .filter(Boolean);
-  const author = Array.from(new Set(authorRels)).join(' / ') || 'Tác giả chưa rõ';
-
-  const desc = attr.description?.vi || attr.description?.en || Object.values(attr.description || {})[0] || '';
-
-  const genres = (attr.tags || [])
-    .map((t: any) => t.attributes?.name?.vi || t.attributes?.name?.en)
-    .filter(Boolean);
-
-  const lastChap = parseFloat(attr.lastChapter || '0');
-
-  return {
-    id,
-    title: displayTitle,
-    alternativeTitle: altTitleDisplay,
-    author,
-    cover,
-    description: desc,
-    genres,
-    status: attr.status || 'ongoing',
-    country: attr.originalLanguage || 'jp',
-    demographic: attr.publicationDemographic || 'shounen',
-    contentRating: attr.contentRating || 'safe',
-    year: attr.year ? Number(attr.year) : 2026,
-    rating: 9.5,
-    views: 12000,
-    updatedAt: attr.updatedAt || new Date().toISOString(),
-    totalChapters: isNaN(lastChap) ? 0 : Math.round(lastChap),
-    chaptersCount: isNaN(lastChap) ? 0 : Math.round(lastChap),
-    chapters: []
-  };
-}
-
 export async function rememberManga(m: MangaCard): Promise<void> {
   if (!m || !m.id) return;
   await ensureDbInitialized();
@@ -147,297 +84,130 @@ export async function rememberManga(m: MangaCard): Promise<void> {
   }
 }
 
-// 1. HOME CATALOG
-export async function getHomeCatalog(page: number = 1, pageSize: number = 24): Promise<CatalogPage> {
-  const cacheKey = `catalog:home:${page}:${pageSize}`;
+// Crawled database rows are detail snapshots, not the full source catalog.
+function mapLocalManga(r: any): MangaCard {
+  return {
+    id: r.Id, title: r.Title, alternativeTitle: r.AlternativeTitle || '', author: r.Author || 'Chưa rõ',
+    cover: r.Cover || '/cover-placeholder.svg', description: r.Description || '', genres: r.Genres || [],
+    status: r.Status || 'ongoing', country: r.Country || 'ja', demographic: r.Demographic || '',
+    year: r.Year || undefined, views: Number(r.Views || 0), rating: 0, follows: 0,
+    updatedAt: r.UpdatedAt ? new Date(r.UpdatedAt).toISOString() : '',
+    chaptersCount: Number(r.chapters_count || 0), totalChapters: Number(r.chapters_count || 0),
+    chapters: r.recent_chapters || []
+  };
+}
+
+async function localCatalog(filters: CatalogFilters, genreName = ''): Promise<MangaCard[]> {
+  try {
+    await ensureDbInitialized();
+    const rows = await sql`
+      SELECT m.*,
+        (SELECT count(*)::int FROM "Chapters" c WHERE c."MangaId" = m."Id") as chapters_count,
+        (SELECT coalesce(json_agg(ch), '[]'::json) FROM (
+          SELECT c."Id" as id, c."MangaId" as "mangaId", c."Title" as title,
+                 c."Number" as number, c."Language" as language, c."PublishedAt" as "publishedAt"
+          FROM "Chapters" c WHERE c."MangaId" = m."Id" AND c."PublishedAt" <= CURRENT_TIMESTAMP
+          ORDER BY c."Number" DESC LIMIT 3
+        ) ch) as recent_chapters
+      FROM "Mangas" m
+      WHERE m."IsHidden" = false AND m."IsDraft" = false AND m."SourceType" <> 'crawl'
+      ORDER BY m."UpdatedAt" DESC, m."Id" ASC;
+    `;
+    const aliases: Record<string, string> = { jp: 'ja', cn: 'zh', manhwa: 'ko', manhua: 'zh' };
+    const countries = (filters.country || '').split(',').map(c => aliases[c] || c);
+    const items = rows.map(mapLocalManga).filter(m => {
+      const text = (m.title + ' ' + m.alternativeTitle).toLocaleLowerCase('vi');
+      return (!filters.q || text.includes(filters.q.toLocaleLowerCase('vi')))
+        && (!filters.author || m.author.toLocaleLowerCase('vi').includes(filters.author.toLocaleLowerCase('vi')))
+        && (!filters.status || m.status === filters.status)
+        && (!filters.country || countries.includes(aliases[m.country] || m.country))
+        && (!filters.demographic || m.demographic === filters.demographic)
+        && (!filters.year || m.year === filters.year)
+        && (!filters.genre || m.genres.some(g => g.toLowerCase() === genreName.toLowerCase()))
+        && (filters.language !== 'en' || m.chapters.some(c => c.language === 'en'));
+    });
+    if (filters.sort === 'title') items.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
+    if (filters.sort === 'chapters') items.sort((a, b) => (b.totalChapters || 0) - (a.totalChapters || 0));
+    return items;
+  } catch {
+    // The external catalog remains available if the optional local database is offline.
+    return [];
+  }
+}
+
+export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage> {
+  const pagination = catalogPagination(params.page, params.pageSize);
+  const filters: CatalogFilters = {
+    ...params, q: params.q?.trim() || '', author: params.author?.trim() || '',
+    language: params.language === 'en' ? 'en' : 'vi',
+    page: pagination.page, pageSize: pagination.pageSize
+  };
+  const cacheKey = 'catalog:browse:v2:' + JSON.stringify(filters);
   const cached = await cacheGet<CatalogPage>(cacheKey);
   if (cached) return cached;
-
-  await ensureDbInitialized();
-
-  // A. Get local custom mangas from DB first
-  const offset = (page - 1) * pageSize;
-  const localRows = await sql`
-    SELECT m.*, (SELECT count(*)::int FROM "Chapters" c WHERE c."MangaId" = m."Id") as chapters_count
-    FROM "Mangas" m
-    WHERE m."IsHidden" = false AND m."IsDraft" = false
-    ORDER BY m."UpdatedAt" DESC
-    LIMIT ${pageSize} OFFSET ${offset};
-  `;
-
-  const totalLocal = await sql`
-    SELECT count(*)::int as total FROM "Mangas" WHERE "IsHidden" = false AND "IsDraft" = false;
-  `;
-
-  let localItems: MangaCard[] = localRows.map((r: any) => ({
-    id: r.Id,
-    title: r.Title,
-    alternativeTitle: r.AlternativeTitle || '',
-    author: r.Author || 'Chưa rõ',
-    cover: r.Cover || '/cover-placeholder.svg',
-    description: r.Description || '',
-    genres: r.Genres || [],
-    status: r.Status || 'ongoing',
-    country: r.Country || 'jp',
-    demographic: r.Demographic || 'shounen',
-    year: r.Year || 2026,
-    views: Number(r.Views || 0),
-    rating: 9.6,
-    updatedAt: r.UpdatedAt ? new Date(r.UpdatedAt).toISOString() : new Date().toISOString(),
-    chaptersCount: Number(r.chapters_count || 0),
-    totalChapters: Number(r.chapters_count || 0),
-    chapters: []
-  }));
-
-  // B. If local items are fewer than pageSize, backfill with MangaDex latest updates
-  let items = [...localItems];
-  let totalCount = Number(totalLocal[0]?.total || 0);
-
-  if (items.length < pageSize) {
-    try {
-      const needed = pageSize - items.length;
-      const mdOffset = Math.max(0, offset - totalCount);
-      const res = await fetch(
-        `${MANGADEX_API}/manga?limit=${needed}&offset=${mdOffset}&includes[]=cover_art&includes[]=author&contentRating[]=safe&contentRating[]=suggestive&availableTranslatedLanguage[]=vi&order[latestUploadedChapter]=desc`,
-        { next: { revalidate: 300 } }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        const mdItems: MangaCard[] = (data.data || []).map(mapMangaDexManga);
-        const existingIds = new Set(items.map(x => x.id));
-        for (const it of mdItems) {
-          if (!existingIds.has(it.id)) {
-            items.push(it);
-            existingIds.add(it.id);
-            void rememberManga(it);
-          }
-        }
-        totalCount += Number(data.total || 0);
-      }
-    } catch (e) {
-      // Continue with local items
-    }
+  let remoteGenre = filters.genre;
+  let genreName = '';
+  if (filters.genre) {
+    const tags = await getTags();
+    genreName = tags.find(t => t.id === filters.genre)?.name || filters.genre;
+    const remoteTags = await getMangaDexTags();
+    remoteGenre = remoteTags.find(t => t.id === filters.genre || t.name.toLowerCase() === genreName.toLowerCase())?.id;
   }
-
+  const local = await localCatalog(filters, genreName);
+  const localPage = local.slice(pagination.offset, pagination.offset + pagination.pageSize);
+  const remoteOffset = Math.max(0, pagination.offset - local.length);
+  const needed = pagination.pageSize - localPage.length;
+  const remote = filters.genre && !remoteGenre
+    ? { items: [], total: 0 }
+    : await searchMangaDex({ ...filters, genre: remoteGenre }, remoteOffset, Math.max(1, needed));
   const result: CatalogPage = {
-    items,
-    total: Math.max(totalCount, items.length),
-    page,
-    pageSize
+    items: [...localPage, ...remote.items.slice(0, needed)], total: local.length + remote.total,
+    page: pagination.page, pageSize: pagination.pageSize
   };
-
   await cacheSet(cacheKey, result, 120);
   return result;
 }
 
-// 2. FEATURED CATALOG
-export async function getFeaturedCatalog(limit: number = 10, page: number = 1): Promise<CatalogPage> {
-  const cacheKey = `catalog:featured:${limit}:${page}`;
-  const cached = await cacheGet<CatalogPage>(cacheKey);
-  if (cached) return cached;
-
-  await ensureDbInitialized();
-
-  // Try DB featured first
-  const rows = await sql`
-    SELECT m.*, (SELECT count(*)::int FROM "Chapters" c WHERE c."MangaId" = m."Id") as chapters_count
-    FROM "Mangas" m
-    WHERE (m."Featured" = true OR m."Views" > 500) AND m."IsHidden" = false
-    ORDER BY m."Views" DESC, m."UpdatedAt" DESC
-    LIMIT ${limit};
-  `;
-
-  let items: MangaCard[] = rows.map((r: any) => ({
-    id: r.Id,
-    title: r.Title,
-    alternativeTitle: r.AlternativeTitle || '',
-    author: r.Author || 'Chưa rõ',
-    cover: r.Cover || '/cover-placeholder.svg',
-    description: r.Description || '',
-    genres: r.Genres || [],
-    status: r.Status || 'ongoing',
-    country: r.Country || 'jp',
-    demographic: r.Demographic || 'shounen',
-    year: r.Year || 2026,
-    views: Number(r.Views || 0),
-    rating: 9.8,
-    updatedAt: r.UpdatedAt ? new Date(r.UpdatedAt).toISOString() : new Date().toISOString(),
-    chaptersCount: Number(r.chapters_count || 0),
-    totalChapters: Number(r.chapters_count || 0),
-    chapters: []
-  }));
-
-  if (items.length < limit) {
-    try {
-      const res = await fetch(
-        `${MANGADEX_API}/manga?limit=${limit}&includes[]=cover_art&includes[]=author&contentRating[]=safe&contentRating[]=suggestive&availableTranslatedLanguage[]=vi&order[followedCount]=desc`,
-        { next: { revalidate: 600 } }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const mdItems = (data.data || []).map(mapMangaDexManga);
-        const existingIds = new Set(items.map(x => x.id));
-        for (const it of mdItems) {
-          if (!existingIds.has(it.id) && items.length < limit) {
-            items.push(it);
-            existingIds.add(it.id);
-            void rememberManga(it);
-          }
-        }
-      }
-    } catch {}
-  }
-
-  const result: CatalogPage = {
-    items,
-    total: items.length,
-    page,
-    pageSize: limit
-  };
-
-  await cacheSet(cacheKey, result, 300);
-  return result;
+export async function getHomeCatalog(page = 1, pageSize = 28): Promise<CatalogPage> {
+  return searchCatalog({ page, pageSize, language: 'vi', sort: 'latest' });
 }
 
-// 3. SEARCH CATALOG
-export async function searchCatalog(params: {
-  q?: string;
-  author?: string;
-  genre?: string;
-  status?: string;
-  country?: string;
-  demographic?: string;
-  language?: string;
-  sort?: string;
-  year?: number;
-  page?: number;
-  pageSize?: number;
-}): Promise<CatalogPage> {
-  const p = Math.max(1, params.page || 1);
-  const size = Math.min(50, Math.max(1, params.pageSize || 24));
-  const offset = (p - 1) * size;
-
-  await ensureDbInitialized();
-
-  // Search DB
-  let queryText = params.q?.trim() || '';
-  let authorText = params.author?.trim() || '';
-
-  let dbResults = await sql`
-    SELECT m.*, (SELECT count(*)::int FROM "Chapters" c WHERE c."MangaId" = m."Id") as chapters_count
-    FROM "Mangas" m
-    WHERE m."IsHidden" = false AND m."IsDraft" = false
-      AND (${queryText} = '' OR m."Title" ILIKE ${'%' + queryText + '%'} OR m."AlternativeTitle" ILIKE ${'%' + queryText + '%'})
-      AND (${authorText} = '' OR m."Author" ILIKE ${'%' + authorText + '%'})
-      AND (${params.status || 'all'} = 'all' OR m."Status" = ${params.status || ''})
-      AND (${params.country || 'all'} = 'all' OR m."Country" = ${params.country || ''})
-    ORDER BY m."UpdatedAt" DESC
-    LIMIT ${size} OFFSET ${offset};
-  `;
-
-  let items: MangaCard[] = dbResults.map((r: any) => ({
-    id: r.Id,
-    title: r.Title,
-    alternativeTitle: r.AlternativeTitle || '',
-    author: r.Author || 'Chưa rõ',
-    cover: r.Cover || '/cover-placeholder.svg',
-    description: r.Description || '',
-    genres: r.Genres || [],
-    status: r.Status || 'ongoing',
-    country: r.Country || 'jp',
-    demographic: r.Demographic || 'shounen',
-    year: r.Year || 2026,
-    views: Number(r.Views || 0),
-    rating: 9.5,
-    updatedAt: r.UpdatedAt ? new Date(r.UpdatedAt).toISOString() : new Date().toISOString(),
-    chaptersCount: Number(r.chapters_count || 0),
-    totalChapters: Number(r.chapters_count || 0),
-    chapters: []
-  }));
-
-  // Backfill with MangaDex if needed
-  if (items.length < size && queryText) {
-    try {
-      const url = `${MANGADEX_API}/manga?limit=${size}&title=${encodeURIComponent(queryText)}&includes[]=cover_art&includes[]=author&contentRating[]=safe&contentRating[]=suggestive&availableTranslatedLanguage[]=vi`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        const mdItems = (data.data || []).map(mapMangaDexManga);
-        const existing = new Set(items.map(x => x.id));
-        for (const it of mdItems) {
-          if (!existing.has(it.id) && items.length < size) {
-            items.push(it);
-            existing.add(it.id);
-            void rememberManga(it);
-          }
-        }
-      }
-    } catch {}
-  }
-
-  return {
-    items,
-    total: Math.max(items.length, size * p),
-    page: p,
-    pageSize: size
-  };
+export async function getFeaturedCatalog(limit = 20, page = 1): Promise<CatalogPage> {
+  return searchCatalog({ page, pageSize: limit, country: 'ko,zh', language: 'vi', sort: 'hot' });
 }
 
 // 4. MANGA DETAIL
 export async function getMangaDetail(id: string): Promise<MangaCard | null> {
-  const cacheKey = `manga:detail:${id}`;
+  const cacheKey = 'manga:detail:source:v2:' + id;
   const cached = await cacheGet<MangaCard>(cacheKey);
   if (cached) return cached;
-
-  await ensureDbInitialized();
-
-  // Check DB first
-  const rows = await sql`
-    SELECT m.*, (SELECT count(*)::int FROM "Chapters" c WHERE c."MangaId" = m."Id") as chapters_count
-    FROM "Mangas" m
-    WHERE m."Id" = ${id}
-    LIMIT 1;
-  `;
-
-  if (rows && rows.length > 0) {
-    const r = rows[0];
-    const m: MangaCard = {
-      id: r.Id,
-      title: r.Title,
-      alternativeTitle: r.AlternativeTitle || '',
-      author: r.Author || 'Chưa rõ',
-      cover: r.Cover || '/cover-placeholder.svg',
-      description: r.Description || '',
-      genres: r.Genres || [],
-      status: r.Status || 'ongoing',
-      country: r.Country || 'jp',
-      demographic: r.Demographic || 'shounen',
-      year: r.Year || 2026,
-      views: Number(r.Views || 0),
-      rating: 9.7,
-      updatedAt: r.UpdatedAt ? new Date(r.UpdatedAt).toISOString() : new Date().toISOString(),
-      chaptersCount: Number(r.chapters_count || 0),
-      totalChapters: Number(r.chapters_count || 0),
-      chapters: []
-    };
-    await cacheSet(cacheKey, m, 180);
-    return m;
-  }
-
-  // Fallback to MangaDex
+  let local: any;
   try {
-    const res = await fetch(`${MANGADEX_API}/manga/${id}?includes[]=cover_art&includes[]=author`);
-    if (res.ok) {
-      const data = await res.json();
-      const m = mapMangaDexManga(data.data);
-      await rememberManga(m);
-      await cacheSet(cacheKey, m, 300);
-      return m;
+    await ensureDbInitialized();
+    const rows = await sql`
+      SELECT m.*, (SELECT count(*)::int FROM "Chapters" c WHERE c."MangaId" = m."Id") as chapters_count
+      FROM "Mangas" m WHERE m."Id" = ${id} LIMIT 1;
+    `;
+    local = rows[0];
+    if (local?.IsHidden || local?.IsDraft) return null;
+    if (local && local.SourceType !== 'crawl') {
+      const manga = mapLocalManga(local);
+      await cacheSet(cacheKey, manga, 180);
+      return manga;
     }
-  } catch {}
-
-  return null;
+  } catch {
+    // Source stories can still be read while the local database is unavailable.
+  }
+  try {
+    const data = await mangaDexGet('/manga/' + encodeURIComponent(id) + '?includes[]=cover_art&includes[]=author&includes[]=artist');
+    const manga = mapMangaDexManga(data.data);
+    await enrichMangaDexCards([manga]);
+    await rememberManga(manga);
+    await cacheSet(cacheKey, manga, 300);
+    return manga;
+  } catch {
+    return local ? mapLocalManga(local) : null;
+  }
 }
 
 // 5. MANGA CHAPTERS
@@ -646,12 +416,33 @@ export async function getChapterReader(chapterId: string): Promise<ReaderData | 
 }
 
 // 7. TAGS
+async function getMangaDexTags(): Promise<{ id: string; name: string }[]> {
+  const key = 'catalog:tags:mangadex:v1';
+  const cached = await cacheGet<{ id: string; name: string }[]>(key);
+  if (cached) return cached;
+  const data = await mangaDexGet('/manga/tag');
+  const tags = (data.data || []).map((t: any) => ({
+    id: t.id, name: t.attributes?.name?.vi || t.attributes?.name?.en || ''
+  })).filter((t: { name: string }) => t.name);
+  await cacheSet(key, tags, 3600);
+  return tags;
+}
+
 export async function getTags(): Promise<{ id: string; name: string }[]> {
-  await ensureDbInitialized();
-  const rows = await sql`
-    SELECT "Id", "Name" FROM "TaxonomyItems" WHERE "Type" = 'genre' ORDER BY "Name" ASC;
-  `;
-  return rows.map((r: any) => ({ id: r.Id, name: r.Name }));
+  const [remote, local] = await Promise.allSettled([
+    getMangaDexTags(),
+    (async () => {
+      await ensureDbInitialized();
+      const rows = await sql`SELECT "Id", "Name" FROM "TaxonomyItems" WHERE "Type" = 'genre' ORDER BY "Name" ASC`;
+      return rows.map((r: any) => ({ id: r.Id, name: r.Name as string }));
+    })()
+  ]);
+  const tags = new Map<string, { id: string; name: string }>();
+  for (const result of [remote, local]) {
+    if (result.status !== 'fulfilled') continue;
+    for (const tag of result.value) if (!tags.has(tag.name.toLowerCase())) tags.set(tag.name.toLowerCase(), tag);
+  }
+  return [...tags.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
 }
 
 // 8. AUTHORS
