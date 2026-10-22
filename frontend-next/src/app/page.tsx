@@ -238,7 +238,7 @@ function HomeContent() {
   };
 
   const prefetchAdjacent = (p: number, t: number) => {
-    const max = Math.ceil(t / 28) || 999;
+    const max = Math.ceil(t / 30) || 999;
     if (p < max) prefetchPage(p + 1);
     if (p > 1) prefetchPage(p - 1);
     if (p + 1 < max) {
@@ -250,7 +250,7 @@ function HomeContent() {
 
   // Load Main Home Catalog
   const loadMain = async (p: number) => {
-    const path = '/catalog/home?page=' + p;
+    const path = '/catalog/home?page=' + p + '&pageSize=30';
     const n = ++epochRef.current;
     setError('');
 
@@ -312,7 +312,7 @@ function HomeContent() {
       );
       if (result.items) {
         setTrendingSpotlights(result.items);
-        setTrending(result.items.slice(0, 10));
+        setTrending(result.items.slice(0, 12));
       }
     } catch {
       setTrendingError(true);
@@ -504,7 +504,7 @@ function HomeContent() {
             <Pagination
               page={page}
               total={total}
-              size={28}
+              size={30}
               change={goPage}
               hover={prefetchPage}
             />

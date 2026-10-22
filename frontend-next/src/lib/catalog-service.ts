@@ -201,7 +201,7 @@ async function federatedCatalog(filters: CatalogFilters, remoteGenre: string | u
   return { items: interleaveSourceItems([md, gg], window.order), total: window.total };
 }
 
-export async function getHomeCatalog(page = 1, pageSize = 28): Promise<CatalogPage> {
+export async function getHomeCatalog(page = 1, pageSize = 30): Promise<CatalogPage> {
   return searchCatalog({ page, pageSize, language: 'vi', sort: 'latest' });
 }
 

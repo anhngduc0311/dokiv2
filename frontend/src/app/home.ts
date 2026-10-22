@@ -75,7 +75,7 @@ import { BannerImage, loadSpotlightImages, rankSpotlightCandidates } from './spo
     </div>
 
     @if(!loading() && !error()){
-      <app-pagination [page]="page()" [total]="total()" [size]="28" [change]="goPage" [hover]="prefetchPage"/>
+      <app-pagination [page]="page()" [total]="total()" [size]="30" [change]="goPage" [hover]="prefetchPage"/>
     }
   </section>
 
@@ -282,7 +282,7 @@ export class Home implements OnDestroy {
     try {
       const result = await this.api.request<Page<Manga>>('/catalog/search?sort=hot&pageSize=28&language=vi', 'GET', undefined, true);
       this.trendingSpotlights.set(result.items);
-      this.trending.set(result.items.slice(0, 10));
+      this.trending.set(result.items.slice(0, 12));
     } catch { this.trendingError.set(true); }
     finally { this.trendingLoading.set(false); }
   }
