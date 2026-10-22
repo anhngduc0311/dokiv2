@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       LEFT JOIN "Users" u ON u."Id" = c."UserId"
       ${whereClause};
     `;
-    const countRes = (await (sql as any)(countQuery, params)) as any[];
+    const countRes = (await (sql as any).query(countQuery, params)) as any[];
     const total = countRes[0]?.total || 0;
 
     const itemsQuery = `
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
       ORDER BY c."CreatedAt" DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2};
     `;
-    const rawItems = (await (sql as any)(itemsQuery, [...params, pageSize, offset])) as any[];
+    const rawItems = (await (sql as any).query(itemsQuery, [...params, pageSize, offset])) as any[];
 
     const items = rawItems.map((c: any) => ({
       id: c.Id,

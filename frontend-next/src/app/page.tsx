@@ -135,7 +135,7 @@ function HomeContent() {
             }));
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [currentSpotlight]);
 
@@ -374,8 +374,8 @@ function HomeContent() {
                   {currentSpotlight.country === 'ko'
                     ? 'Manhwa'
                     : ['cn', 'zh', 'zh-hk'].includes(currentSpotlight.country)
-                    ? 'Manhua'
-                    : 'Manga'}
+                      ? 'Manhua'
+                      : 'Manga'}
                 </span>
                 <span>Romance</span>
                 <span>DokiTruyen</span>

@@ -53,7 +53,7 @@ export async function GET(req: Request) {
 
     // Total count
     const countQuery = `SELECT count(*)::int as total FROM "Mangas" ${whereClause};`;
-    const countRes = (await (sql as any)(countQuery, params)) as any[];
+    const countRes = (await (sql as any).query(countQuery, params)) as any[];
     const total = countRes[0]?.total || 0;
 
     // Items query with chapters count
@@ -67,7 +67,7 @@ export async function GET(req: Request) {
       ORDER BY m."UpdatedAt" DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2};
     `;
-    const rawItems = (await (sql as any)(itemsQuery, [...params, pageSize, offset])) as any[];
+    const rawItems = (await (sql as any).query(itemsQuery, [...params, pageSize, offset])) as any[];
 
     // Process chapters count
     const items = await Promise.all(

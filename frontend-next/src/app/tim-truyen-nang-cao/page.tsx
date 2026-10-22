@@ -44,7 +44,7 @@ function SearchContent() {
     void api
       .request<{ id: string; name: string }[]>('/catalog/tags')
       .then(r => setTags(r || []))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -274,7 +274,8 @@ function SearchContent() {
               <span>Nguồn truyện</span>
               <select name="source" value={form.source} onChange={e => {
                 const source = e.target.value;
-                setForm(source === 'truyengg' ? { ...form, source, author: '', year: '', language: 'vi',
+                setForm(source === 'truyengg' ? {
+                  ...form, source, author: '', year: '', language: 'vi',
                   status: ['hiatus', 'cancelled'].includes(form.status) ? '' : form.status,
                   sort: ['rating', 'chapters', 'title'].includes(form.sort) ? 'latest' : form.sort
                 } : { ...form, source });

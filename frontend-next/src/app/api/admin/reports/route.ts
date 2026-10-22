@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       FROM "Reports" r
       ${whereClause};
     `;
-    const countRes = (await (sql as any)(countQuery, params)) as any[];
+    const countRes = (await (sql as any).query(countQuery, params)) as any[];
     const total = countRes[0]?.total || 0;
 
     const itemsQuery = `
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
       ORDER BY r."CreatedAt" DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2};
     `;
-    const rawItems = (await (sql as any)(itemsQuery, [...params, pageSize, offset])) as any[];
+    const rawItems = (await (sql as any).query(itemsQuery, [...params, pageSize, offset])) as any[];
 
     const items = rawItems.map((r: any) => ({
       id: r.Id,

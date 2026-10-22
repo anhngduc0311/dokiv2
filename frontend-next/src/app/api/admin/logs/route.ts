@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     const countQuery = `SELECT count(*)::int as total FROM "SystemLogs" ${whereClause};`;
-    const countRes = (await (sql as any)(countQuery, params)) as any[];
+    const countRes = (await (sql as any).query(countQuery, params)) as any[];
     const total = countRes[0]?.total || 0;
 
     const itemsQuery = `
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
       ORDER BY "CreatedAt" DESC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2};
     `;
-    const items = (await (sql as any)(itemsQuery, [...params, pageSize, offset])) as any[];
+    const items = (await (sql as any).query(itemsQuery, [...params, pageSize, offset])) as any[];
 
     return NextResponse.json({ items, total, page, pageSize });
   } catch (err: any) {
