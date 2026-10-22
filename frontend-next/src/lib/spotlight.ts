@@ -1,5 +1,12 @@
 import { Manga, BannerImage } from '../types';
 
+export function hasRomanceGenre(manga: Pick<Manga, 'genres'>): boolean {
+  return Array.isArray(manga.genres) && manga.genres.some(genre =>
+    genre.normalize('NFKD').replace(/\p{M}/gu, '').trim().toLocaleLowerCase('vi') === 'romance' ||
+    genre.normalize('NFKD').replace(/\p{M}/gu, '').trim().toLocaleLowerCase('vi') === 'lang man'
+  );
+}
+
 // Publish each usable image immediately; a slow CDN must not hold up the hero.
 export async function loadSpotlightImages(
   candidates: Manga[],

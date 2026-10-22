@@ -7,7 +7,7 @@ import { Manga, Page, BannerImage } from '../types';
 import { api } from '../lib/api';
 import { useStore } from '../contexts/store-context';
 import { cleanDescription, message, statuses } from '../lib/utils';
-import { loadSpotlightImages, rankSpotlightCandidates } from '../lib/spotlight';
+import { hasRomanceGenre, loadSpotlightImages, rankSpotlightCandidates } from '../lib/spotlight';
 import { Icon } from '../components/ui/icon';
 import { MangaCard } from '../components/ui/manga-card';
 import { Pagination } from '../components/ui/pagination';
@@ -100,7 +100,7 @@ function HomeContent() {
       ...pool,
       ...trendingSpotlights,
       ...latestSpotlights
-    ]).slice(0, 40);
+    ].filter(hasRomanceGenre)).slice(0, 40);
 
     const epoch = ++selectionEpochRef.current;
     if (!candidates.length) return;
@@ -377,6 +377,7 @@ function HomeContent() {
                     ? 'Manhua'
                     : 'Manga'}
                 </span>
+                <span>Romance</span>
                 <span>DokiTruyen</span>
               </div>
               <h1>{currentSpotlight.title}</h1>
