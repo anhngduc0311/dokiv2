@@ -385,7 +385,7 @@ function ReaderContent() {
       const r = await api.request<ReaderData>('/chapters/' + id, 'GET', undefined, true);
       if (n !== epochRef.current) return;
       setData(r);
-      void store.record(r).catch(e => store.notify(message(e)));
+      void store.record(r).catch(() => {});
       scrollToTopInstant();
       const loadedPages = rawPages(r);
       preloadUpcoming(0, 4, loadedPages);
