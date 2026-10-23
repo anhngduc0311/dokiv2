@@ -259,8 +259,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         chapterTitle: r.chapter.title,
         readAt: new Date().toISOString()
       };
-      if (userRef.current) {
-        await api.request(`/library/history/${r.chapter.id}`, 'PUT', {});
+      const currentUser = userRef.current || (getStoredToken() ? await ensureRestored() : null);
+      if (currentUser) {
+        await api.request(`/library/history/${r.chapter.id}`, 'PUT', {
+          manga: r.manga,
+          chapter: r.chapter
+        });
         await refreshLibrary();
       } else {
         setHistory(prev => {
@@ -270,7 +274,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [refreshLibrary]
+    [refreshLibrary, ensureRestored]
   );
 
   const removeHistory = useCallback(
