@@ -12,7 +12,7 @@
   position: fixed;
   inset: 0;
   z-index: 999999;
-  background: #101114;
+  background: var(--bg, #101114);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -57,24 +57,17 @@
   animation: splashFloat 2.4s ease-in-out infinite;
   filter: drop-shadow(0 4px 14px #b76e9135);
 }
-.splash-brand {
+.brand.splash-brand {
   font-family: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
-  font-size: 26px;
+  font-size: clamp(28px, 6vw, 34px);
   font-weight: 800;
-  letter-spacing: -0.04em;
-  color: #f8fafc;
-  margin-bottom: 22px;
-}
-.splash-brand span {
-  color: #b76e91;
-}
-.splash-brand .splash-dot {
-  color: #b76e91;
+  color: var(--text);
+  margin-bottom: 26px;
 }
 .splash-loader {
   width: 140px;
   height: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--accent-soft);
   border-radius: 99px;
   overflow: hidden;
   position: relative;
@@ -85,7 +78,7 @@
   left: 0;
   height: 100%;
   width: 45%;
-  background: linear-gradient(90deg, #b76e91, #dbaac2);
+  background: linear-gradient(90deg, #ec8eb7, #a48be0);
   border-radius: 99px;
   animation: splashIndeterminate 1.4s infinite cubic-bezier(0.65, 0, 0.35, 1);
 }
@@ -105,5 +98,13 @@
   0% { left: -45%; width: 35%; }
   50% { left: 35%; width: 55%; }
   100% { left: 100%; width: 35%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-content, .splash-glow, .splash-logo, .splash-progress {
+    animation: none;
+  }
+  #app-splash { transition: none; }
+  .splash-progress { left: 25%; width: 50%; }
 }
 

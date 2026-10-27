@@ -120,9 +120,10 @@ export default function RootLayout({
                 alt="DokiTruyen Logo"
               />
             </div>
-            <div className="splash-brand">
-              doki<span>truyen</span>
-              <span className="splash-dot">.</span>
+            <div className="brand splash-brand">
+              <span className="brand-wordmark">
+                <span className="brand-doki">Doki</span><span className="brand-truyen">Truyen</span>
+              </span>
             </div>
             <div className="splash-loader">
               <div className="splash-progress"></div>

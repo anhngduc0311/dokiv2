@@ -43,16 +43,29 @@
   filter: drop-shadow(0 2px 5px #b76e9126);
 }
 .brand .brand-wordmark {
-  display: inline-flex; align-items: baseline; white-space: nowrap;
-  font-weight: 800; line-height: 1.2;
+  position: relative; display: inline-flex; align-items: baseline; white-space: nowrap;
+  padding: 0 .12em .14em .04em;
+  font-weight: 800; line-height: 1.15; letter-spacing: -.065em;
+  transform: skewX(-8deg);
+}
+.brand .brand-wordmark::after {
+  content: ''; position: absolute; bottom: .015em; left: .12em;
+  width: 2.05em; height: .105em; border-radius: 100% 2px 100% 2px;
+  background: linear-gradient(90deg, #ec8eb7, #a48be0);
+  transform: rotate(-4deg);
 }
 .brand .brand-wordmark > .brand-doki {
-  color: #e39bbb; font-weight: 800;
-  background: linear-gradient(120deg, #f0abc6 10%, #b8a0e8 95%);
+  color: #e39bbb; font-weight: 900; font-size: 1.1em;
+  -webkit-text-stroke: .35px currentColor;
+  background: linear-gradient(145deg, #ffd0df 5%, #ee92bc 48%, #ad96e8 95%);
   background-clip: text; -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 #a65c8326);
 }
-.brand .brand-wordmark > .brand-truyen { color: var(--text); font-weight: 700; }
+.brand .brand-wordmark > .brand-truyen {
+  color: var(--text); font-weight: 800; letter-spacing: -.055em;
+  margin-left: .035em;
+}
 :root[data-theme='light'] .brand .brand-wordmark > .brand-doki {
   color: #925372;
   background-image: linear-gradient(120deg, #a34572 10%, #7052a4 95%);
@@ -60,6 +73,7 @@
 .brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 6px; }
 @media (forced-colors: active) {
   .brand .brand-wordmark > .brand-doki { background: none; -webkit-text-fill-color: currentColor; }
+  .brand .brand-wordmark::after { background: currentColor; }
 }
 .header-navigation { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .header-navigation a, .header-navigation button {
