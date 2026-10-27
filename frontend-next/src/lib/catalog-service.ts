@@ -376,6 +376,8 @@ export async function getMangaChapters(
     SELECT "Id", "MangaId", "Number", "Title", "Language", "PublishedAt", "ContentType", array_length("Pages", 1) as pages_count
     FROM "Chapters"
     WHERE "MangaId" = ${mangaId} AND "Language" = ${language}
+      AND "PublishedAt" <= CURRENT_TIMESTAMP
+      AND ("ScheduledPublishAt" IS NULL OR "ScheduledPublishAt" <= CURRENT_TIMESTAMP)
     ORDER BY "Number" DESC
   `;
 
@@ -411,6 +413,15 @@ export async function getMangaChapters(
 
 // 6. CHAPTER READER
 export async function getChapterReader(chapterId: string): Promise<ReaderData | null> {
+  // Apply publication rules before rendering a local chapter or its metadata.
+  const access = await sql`
+    SELECT c."IsLocked", c."PublishedAt", c."ScheduledPublishAt", m."IsHidden", m."IsDraft"
+    FROM "Chapters" c JOIN "Mangas" m ON m."Id" = c."MangaId" WHERE c."Id" = ${chapterId} LIMIT 1;
+  `;
+  const localChapter = access[0];
+  if (localChapter && (localChapter.IsHidden || localChapter.IsDraft || localChapter.IsLocked
+    || new Date(localChapter.PublishedAt).getTime() > Date.now()
+    || (localChapter.ScheduledPublishAt && new Date(localChapter.ScheduledPublishAt).getTime() > Date.now()))) return null;
   const ref = await findGgReference(chapterId, 'chapter');
   const linkedSource = ref ? await findChapterSourceLink(ref.mangaId).catch(() => null) : null;
   if (ref && linkedSource) {
@@ -472,6 +483,8 @@ export async function getChapterReader(chapterId: string): Promise<ReaderData | 
     const siblings = await sql`
       SELECT "Id", "Number", "Title" FROM "Chapters"
       WHERE "MangaId" = ${c.MangaId}
+        AND "PublishedAt" <= CURRENT_TIMESTAMP AND "IsLocked" = false
+        AND ("ScheduledPublishAt" IS NULL OR "ScheduledPublishAt" <= CURRENT_TIMESTAMP)
       ORDER BY "Number" ASC;
     `;
 

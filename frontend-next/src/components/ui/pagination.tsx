@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from './icon';
 
 export interface PaginationProps {
@@ -12,6 +14,15 @@ export interface PaginationProps {
 }
 
 export function Pagination({ page = 1, total = 0, size = 28, change, hover }: PaginationProps) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const crawlable = pathname === '/' || pathname === '/tim-truyen-nang-cao' || pathname.startsWith('/tac-gia/');
+  const hrefFor = (target: number) => {
+    if (!crawlable) return undefined;
+    const query = new URLSearchParams(searchParams.toString());
+    if (target === 1) query.delete('page'); else query.set('page', String(target));
+    return pathname + (query.size ? '?' + query.toString() : '');
+  };
   const totalPages = Math.max(1, Math.ceil(total / size));
 
   const onHover = (n: number) => {
@@ -26,7 +37,7 @@ export function Pagination({ page = 1, total = 0, size = 28, change, hover }: Pa
 
   return (
     <nav className="pagination" aria-label="Phân trang">
-      <button
+      <PageControl target={page - 1} href={hrefFor(page - 1)} navigate={change} hover={onHover}
         type="button"
         className="pag-btn"
         disabled={page <= 1}
@@ -36,10 +47,10 @@ export function Pagination({ page = 1, total = 0, size = 28, change, hover }: Pa
         aria-label="Trang trước"
       >
         <Icon name="arrowLeft" />
-      </button>
+      </PageControl>
 
       {numbers.map(p => (
-        <button
+        <PageControl target={p} href={hrefFor(p)} navigate={change} hover={onHover}
           key={p}
           type="button"
           className={`pag-btn ${page === p ? 'active' : ''}`}
@@ -49,13 +60,13 @@ export function Pagination({ page = 1, total = 0, size = 28, change, hover }: Pa
           onTouchStart={() => onHover(p)}
         >
           {p}
-        </button>
+        </PageControl>
       ))}
 
       {totalPages > page + 2 && (
         <>
           <span className="pag-ellipsis">…</span>
-          <button
+          <PageControl target={totalPages} href={hrefFor(totalPages)} navigate={change} hover={onHover}
             type="button"
             className="pag-btn"
             onClick={() => change(totalPages)}
@@ -63,11 +74,11 @@ export function Pagination({ page = 1, total = 0, size = 28, change, hover }: Pa
             onTouchStart={() => onHover(totalPages)}
           >
             {totalPages}
-          </button>
+          </PageControl>
         </>
       )}
 
-      <button
+      <PageControl target={page + 1} href={hrefFor(page + 1)} navigate={change} hover={onHover}
         type="button"
         className="pag-btn"
         disabled={page >= totalPages}
@@ -77,7 +88,17 @@ export function Pagination({ page = 1, total = 0, size = 28, change, hover }: Pa
         aria-label="Trang tiếp"
       >
         <Icon name="arrowRight" />
-      </button>
+      </PageControl>
     </nav>
   );
+}
+
+function PageControl({ target, href, navigate, hover, disabled, children, ...props }: {
+  target: number; href?: string; navigate: (page: number) => void; hover: (page: number) => void;
+} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  if (href && !disabled) return <Link href={href} prefetch={false} className={props.className}
+    aria-label={props['aria-label']} aria-current={props['aria-current']}
+    onMouseEnter={() => hover(target)} onTouchStart={() => hover(target)}
+    onClick={event => { if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey && event.button === 0) { event.preventDefault(); navigate(target); } }}>{children}</Link>;
+  return <button {...props} disabled={disabled}>{children}</button>;
 }

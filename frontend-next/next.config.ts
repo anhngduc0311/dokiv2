@@ -1,6 +1,15 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    localPatterns: [
+      // Proxy URLs contain a different encoded source URL for each cover.
+      { pathname: '/api/catalog/image-proxy' },
+      { pathname: '/**', search: '' },
+    ],
+    remotePatterns: [{ protocol: 'https', hostname: 'services.f-ck.me', pathname: '/v1/image/**' }],
+  },
   async redirects() {
     return [
       { source: '/nettrom', destination: '/', permanent: true },

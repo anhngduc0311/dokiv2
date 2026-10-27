@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { readerBannerCrop, readerBannerBounds } from '../frontend/src/app/reader-banners.ts';
+import { readerBannerCrop, readerBannerBounds } from '../frontend-next/src/lib/reader-banners.ts';
 
 // Pixel samples extracted from the reported chapter's actual source images.
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures/reader-banner-samples.json', import.meta.url)));

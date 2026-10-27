@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Manga } from '../../types';
 import { api } from '../../lib/api';
 import { compact, ago } from '../../lib/utils';
@@ -13,7 +14,7 @@ export interface MangaCardProps {
 }
 
 export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
-  const [loaded, setLoaded] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const prefetchedRef = useRef(false);
 
   const recentChapters = [...(manga.chapters || [])]
@@ -44,12 +45,7 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
     api.prefetchDetail(manga.id);
   };
 
-  const fallback = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const img = e.currentTarget;
-    img.onerror = null;
-    img.src = '/cover-placeholder.svg';
-    setLoaded(true);
-  };
+  const fallback = () => setCoverFailed(true);
 
   return (
     <article
@@ -59,21 +55,25 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
     >
       <Link
         href={`/truyen-tranh/${manga.id}`}
+        prefetch={false}
         className="cover-link"
         onClick={savePosition}
         onMouseEnter={prefetch}
         onTouchStart={prefetch}
         aria-label={manga.title}
       >
-        <img
-          src={manga.cover || '/cover-placeholder.svg'}
+        <Image
+          src={coverFailed ? '/cover-placeholder.svg' : manga.cover || '/cover-placeholder.svg'}
+          unoptimized={manga.cover?.startsWith('http') && !manga.cover.startsWith('https://services.f-ck.me/v1/image/')}
           alt={manga.title}
+          width={256}
+          height={360}
+          sizes="(max-width: 600px) 45vw, (max-width: 1024px) 25vw, 180px"
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          onLoad={() => setLoaded(true)}
           onError={fallback}
-          className={loaded ? 'loaded' : ''}
+          className="loaded"
         />
         {(manga.contentRating === 'erotica' || manga.contentRating === 'pornographic') && (
           <span className="age-label">18+</span>

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Script from 'next/script';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStore } from '../../contexts/store-context';
 import { setStoredToken, message } from '../../lib/utils';
@@ -23,6 +24,7 @@ export function AuthView({ isRegister = false }: AuthViewProps) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [googleClientId, setGoogleClientId] = useState('');
+  const [googleReady, setGoogleReady] = useState(false);
 
   const returnUrl = searchParams.get('returnUrl') || '/';
 
@@ -64,7 +66,7 @@ export function AuthView({ isRegister = false }: AuthViewProps) {
 
   // Google GSI button rendering
   useEffect(() => {
-    if (!googleClientId) return;
+    if (!googleClientId || !googleReady) return;
 
     const renderBtn = () => {
       const el = document.getElementById('google-btn-container');
@@ -104,7 +106,7 @@ export function AuthView({ isRegister = false }: AuthViewProps) {
 
     const timer = setTimeout(renderBtn, 100);
     return () => clearTimeout(timer);
-  }, [googleClientId, isRegister, store.settings.theme]);
+  }, [googleClientId, googleReady, isRegister, store.settings.theme]);
 
   const handleGoogleCredential = async (credential: string) => {
     setBusy(true);
@@ -175,6 +177,7 @@ export function AuthView({ isRegister = false }: AuthViewProps) {
 
   return (
     <div className="auth-wrap">
+      <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={() => setGoogleReady(true)} />
       <section className="auth-panel glass-panel">
         <Link href="/" className="brand auth-brand" aria-label="DokiTruyen - Trang chủ">
           <img

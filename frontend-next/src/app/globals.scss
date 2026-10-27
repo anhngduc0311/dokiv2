@@ -1,5 +1,13 @@
 @use './legacy-styles';
 
+:root { --font-main: var(--font-site), system-ui, sans-serif; }
+body, button, input, select, textarea { font-family: var(--font-site), system-ui, sans-serif; }
+.skip-link { position: fixed; left: 16px; top: -100px; z-index: 10000; padding: 12px; background: var(--bg, #101114); color: var(--text, white); }
+.skip-link:focus { top: 16px; }
+.reader-seo-nav { display: flex; flex-wrap: wrap; gap: 16px; padding: 12px 16px; }
+.reader-seo-title { font-size: 1.125rem; padding: 8px 16px; }
+.detail-cover img { aspect-ratio: 256 / 360; object-fit: cover; }
+
 .app-icon {
   display: inline-flex;
   width: 20px;
