@@ -457,6 +457,8 @@ function MangaDetailContent() {
   };
 
   const resumeItem = resume();
+  const genres = manga?.genres?.map(genre => genre.trim()).filter(Boolean) || [];
+  const country = manga?.country?.trim() || '';
 
   return (
     <>
@@ -601,7 +603,7 @@ function MangaDetailContent() {
                       {manga.year && <small className="year"> {manga.year}</small>}
                     </dd>
                     <dt>Quốc gia</dt>
-                    <dd>{COUNTRIES[manga.country] || manga.country}</dd>
+                    <dd>{COUNTRIES[country] || country || <span className="muted">Đang cập nhật</span>}</dd>
                     <dt>Độ tuổi</dt>
                     <dd>
                       {manga.contentRating === 'safe'
@@ -612,9 +614,9 @@ function MangaDetailContent() {
                     </dd>
                   </dl>
 
-                  <div className="tags">
-                    {manga.genres &&
-                      manga.genres.map(g => (
+                  <div className="tags" aria-label="Thể loại">
+                    {genres.length > 0 ? (
+                      genres.map(g => (
                         <button
                           key={g}
                           type="button"
@@ -623,7 +625,10 @@ function MangaDetailContent() {
                         >
                           {g}
                         </button>
-                      ))}
+                      ))
+                    ) : (
+                      <span className="muted">Thể loại: Đang cập nhật</span>
+                    )}
                   </div>
                 </div>
               </div>
