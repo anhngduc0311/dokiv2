@@ -25,6 +25,29 @@ export function canLinkChapterSource(manga: MangaCard, candidate: MangaCard): bo
   if (authors.length && candidateAuthors.length && !authors.some(author => candidateAuthors.includes(author))) return false;
   return true;
 }
+
+export function deduplicateCatalogItems(items: MangaCard[]): MangaCard[] {
+  const result: MangaCard[] = [];
+  const groups = new Map<string, number[]>();
+  const completeness = (manga: MangaCard) => Math.max(manga.totalChapters || 0, manga.chaptersCount || 0,
+    ...manga.chapters.map(chapter => chapter.number), 0);
+  for (const manga of items) {
+    const key = normalizeStoryTitle(manga.title);
+    const candidates = groups.get(key) || [];
+    const index = candidates.find(i => result[i].id === manga.id || canLinkChapterSource(result[i], manga));
+    if (index === undefined) {
+      groups.set(key, [...candidates, result.length]);
+      result.push(manga);
+    } else {
+      const previous = result[index];
+      if (completeness(manga) > completeness(previous)
+        || (completeness(manga) === completeness(previous) && manga.chapters.length > previous.chapters.length)) {
+        result[index] = manga;
+      }
+    }
+  }
+  return result;
+}
 export function mergeChapterSources(primary: ChapterCard[], supplemental: ChapterCard[]): ChapterCard[] {
   const selected = new Map<string, ChapterCard>();
   const key = (chapter: ChapterCard) => chapter.number > 0 ? String(chapter.number) : chapter.title.trim().toLowerCase();

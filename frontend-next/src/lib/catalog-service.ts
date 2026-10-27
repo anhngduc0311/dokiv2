@@ -5,7 +5,7 @@ import type { CatalogFilters } from './mangadex-catalog';
 import { ggTotal, ggWindow, getGgDetail, getGgChapters, getGgReader, getGgTags, searchGgTitles } from './truyengg-catalog';
 import { sourceWindow, interleaveSourceItems } from './catalog-pagination';
 import { loadMangaDexChapterFeed, readerNavigation, readMangaDexChapter } from './mangadex-reader';
-import { uniqueChapterSourceMatch, sameStoryTitle, mergeChapterSources, sourceChapterAliases, chapterSourceParts } from './chapter-source-sync';
+import { uniqueChapterSourceMatch, sameStoryTitle, mergeChapterSources, sourceChapterAliases, chapterSourceParts, deduplicateCatalogItems } from './chapter-source-sync';
 import { findChapterSourceLink, saveChapterSourceLink } from './chapter-source-links';
 import { saveGgReferences, findGgReference } from './source-references';
 import { ggId } from './truyengg-parser';
@@ -146,7 +146,39 @@ async function localCatalog(filters: CatalogFilters, genreName = ''): Promise<Ma
   }
 }
 
+interface UniqueCatalogState { items: MangaCard[]; consumed: number; total: number; nextPage: number; exhausted: boolean }
+const catalogRequests = new Map<string, Promise<CatalogPage>>();
+
 export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage> {
+  const { page, pageSize, offset } = catalogPagination(params.page, params.pageSize);
+  const { page: _page, pageSize: _size, ...criteria } = params;
+  const key = 'catalog:unique:v1:' + JSON.stringify(criteria);
+  const previous = catalogRequests.get(key);
+  const request = (async () => {
+    await previous?.catch(() => undefined);
+    const state = await cacheGet<UniqueCatalogState>(key) || {
+      items: [], consumed: 0, total: 0, nextPage: 1, exhausted: false
+    };
+    // Build one shared prefix before slicing pages, so duplicates cannot cross page boundaries.
+    while (!state.exhausted && state.items.length < offset + pageSize) {
+      const batch = await searchRawCatalog({ ...criteria, page: state.nextPage, pageSize: 50 });
+      state.items = deduplicateCatalogItems([...state.items, ...batch.items]);
+      state.consumed += batch.items.length;
+      state.total = batch.total;
+      state.nextPage++;
+      state.exhausted = !batch.items.length || state.consumed >= batch.total;
+    }
+    await cacheSet(key, state, 120);
+    return { items: state.items.slice(offset, offset + pageSize),
+      total: state.items.length + (state.exhausted ? 0 : Math.max(0, state.total - state.consumed)), page, pageSize };
+  })();
+  catalogRequests.set(key, request);
+  try { return await request; } finally {
+    if (catalogRequests.get(key) === request) catalogRequests.delete(key);
+  }
+}
+
+async function searchRawCatalog(params: CatalogFilters): Promise<CatalogPage> {
   const pagination = catalogPagination(params.page, params.pageSize);
   const filters: CatalogFilters = {
     ...params, q: params.q?.trim() || '', author: params.author?.trim() || '',

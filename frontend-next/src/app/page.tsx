@@ -233,7 +233,7 @@ function HomeContent() {
 
   const prefetchPage = (p: number) => {
     if (p >= 1) {
-      api.prefetch('/catalog/home?page=' + p + '&pageSize=30&chapters=3');
+      api.prefetch('/catalog/home?page=' + p + '&pageSize=30&chapters=3&unique=1');
     }
   };
 
@@ -250,7 +250,7 @@ function HomeContent() {
 
   // Load Main Home Catalog
   const loadMain = async (p: number) => {
-    const path = '/catalog/home?page=' + p + '&pageSize=30&chapters=3';
+    const path = '/catalog/home?page=' + p + '&pageSize=30&chapters=3&unique=1';
     const n = ++epochRef.current;
     setError('');
 

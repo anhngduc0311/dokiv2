@@ -128,6 +128,7 @@ async function enrichGgChapters(items: MangaCard[]): Promise<MangaCard[]> {
     await Promise.allSettled(items.slice(offset, offset + 5).map(async manga => {
       const detail = await getGgDetail(manga.id);
       if (!detail) return;
+      manga.totalChapters = manga.chaptersCount = detail.chapters.length;
       manga.chapters = [...detail.chapters]
         .sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0) || b.number - a.number)
         .slice(0, 3);
