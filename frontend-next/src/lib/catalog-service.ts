@@ -128,6 +128,10 @@ async function localCatalog(filters: CatalogFilters, genreName = ''): Promise<Ma
         && (!filters.author || m.author.toLocaleLowerCase('vi').includes(filters.author.toLocaleLowerCase('vi')))
         && (!filters.status || m.status === filters.status)
         && (!filters.country || countries.includes(aliases[m.country] || m.country))
+        && (!filters.excludeManhuaManhwa || (
+          !['ko', 'zh', 'zh-hk'].includes(aliases[m.country] || m.country)
+          && !m.genres.some(g => /^(manhua|manhwa)$/i.test(g.trim()))
+        ))
         && (!filters.demographic || m.demographic === filters.demographic)
         && (!filters.year || m.year === filters.year)
         && (!filters.genre || m.genres.some(g => g.toLowerCase() === genreName.toLowerCase()))
@@ -149,7 +153,7 @@ export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage
     language: params.language === 'en' ? 'en' : 'vi',
     page: pagination.page, pageSize: pagination.pageSize
   };
-  const cacheKey = 'catalog:browse:multi:v1:' + JSON.stringify(filters);
+  const cacheKey = 'catalog:browse:multi:v2:' + JSON.stringify(filters);
   const cached = await cacheGet<CatalogPage>(cacheKey);
   if (cached) return cached;
   let remoteGenre = filters.genre;
@@ -202,7 +206,7 @@ async function federatedCatalog(filters: CatalogFilters, remoteGenre: string | u
 }
 
 export async function getHomeCatalog(page = 1, pageSize = 30): Promise<CatalogPage> {
-  return searchCatalog({ page, pageSize, language: 'vi', sort: 'latest' });
+  return searchCatalog({ page, pageSize, excludeManhuaManhwa: true, language: 'vi', sort: 'latest' });
 }
 
 export async function getFeaturedCatalog(limit = 20, page = 1): Promise<CatalogPage> {

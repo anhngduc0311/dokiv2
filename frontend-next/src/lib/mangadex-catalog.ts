@@ -2,6 +2,7 @@ import type { MangaCard, CatalogPage, ChapterCard } from './catalog-service';
 
 const API = 'https://api.mangadex.org';
 export interface CatalogFilters {
+  excludeManhuaManhwa?: boolean;
   source?: string;
   q?: string; author?: string; genre?: string; status?: string; country?: string;
   demographic?: string; language?: string; sort?: string; year?: number;
@@ -32,6 +33,9 @@ export function mangaDexQuery(filters: CatalogFilters, offset: number, limit: nu
   for (let country of (filters.country || '').split(',').filter(Boolean)) {
     country = ({ jp: 'ja', cn: 'zh', manhwa: 'ko', manhua: 'zh' } as Record<string, string>)[country] || country;
     if (['ja', 'ko', 'zh', 'zh-hk', 'en'].includes(country)) query.append('originalLanguage[]', country);
+  }
+  if (filters.excludeManhuaManhwa) {
+    for (const language of ['ko', 'zh', 'zh-hk']) query.append('excludedOriginalLanguage[]', language);
   }
   if (['shounen', 'shoujo', 'seinen', 'josei'].includes(filters.demographic || '')) {
     query.append('publicationDemographic[]', filters.demographic!);
@@ -86,25 +90,21 @@ export async function enrichMangaDexCards(items: MangaCard[], language = 'vi') {
       }
     })(),
     (async () => {
-      const q = new URLSearchParams({ limit: '100', 'translatedLanguage[]': language === 'en' ? 'en' : 'vi',
+      const q = new URLSearchParams({ limit: '1', 'translatedLanguage[]': language === 'en' ? 'en' : 'vi',
         'order[readableAt]': 'desc', includeExternalUrl: '0', includeEmptyPages: '0', includeFuturePublishAt: '0' });
       q.append('contentRating[]', 'safe'); q.append('contentRating[]', 'suggestive');
-      const data = await mangaDexGet('/chapter?' + q);
-      for (const manga of items) {
-        const seen = new Set<string>();
-        manga.chapters = (data.data || [])
-          .filter((c: any) => c.relationships?.some((r: any) => r.type === 'manga' && r.id === manga.id))
-          .filter((c: any) => {
-            const key = c.attributes?.chapter ?? c.id;
-            if (seen.has(key)) return false;
-            seen.add(key); return true;
-          }).slice(0, 3).map((c: any): ChapterCard => ({
+      // Query each story's feed so older updates are not lost outside the global latest 100.
+      for (let offset = 0; offset < items.length; offset += 5) {
+        await Promise.allSettled(items.slice(offset, offset + 5).map(async manga => {
+          const data = await mangaDexGet('/manga/' + encodeURIComponent(manga.id) + '/feed?' + q);
+          manga.chapters = (data.data || []).slice(0, 1).map((c: any): ChapterCard => ({
             id: c.id, mangaId: manga.id,
             title: (c.attributes?.chapter ? 'Chương ' + c.attributes.chapter : 'Oneshot') + (c.attributes?.title ? ' · ' + c.attributes.title : ''),
             number: Number.parseFloat(c.attributes?.chapter || '0') || 0,
             language: c.attributes?.translatedLanguage || language,
-            publishedAt: c.attributes?.publishAt || '', pagesCount: c.attributes?.pages || 0
+            publishedAt: c.attributes?.readableAt || c.attributes?.publishAt || c.attributes?.createdAt || '', pagesCount: c.attributes?.pages || 0
           }));
+        }));
       }
     })()
   ]);

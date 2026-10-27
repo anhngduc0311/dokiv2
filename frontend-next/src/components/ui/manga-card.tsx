@@ -16,9 +16,11 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
   const [loaded, setLoaded] = useState(false);
   const prefetchedRef = useRef(false);
 
-  const recentChapters = (manga.chapters || []).slice(0, 3).map(chapter => ({
+  const recentChapters = [...(manga.chapters || [])]
+    .sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0) || b.number - a.number)
+    .slice(0, 1).map(chapter => ({
     ...chapter,
-    relativeTime: ago(chapter.publishedAt)
+    relativeTime: Number.isFinite(Date.parse(chapter.publishedAt)) ? ago(chapter.publishedAt) : 'Đang cập nhật'
   }));
 
   const savePosition = () => {
@@ -107,14 +109,14 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
         {recentChapters.map(c => (
           <div key={c.id} className="mini-chap-item">
             <Link href={`/chuong/${c.id}`} onClick={savePosition} title={c.title}>
-              {c.title}
+              {/oneshot/i.test(c.title) ? 'Oneshot' : `Chapter ${c.number}`}
             </Link>
-            <time>{c.relativeTime}</time>
+            <time dateTime={c.publishedAt || undefined}>{c.relativeTime}</time>
           </div>
         ))}
         {(!manga.chapters || manga.chapters.length === 0) && (
           <div className="mini-chap-item">
-            <span className="muted-author">{manga.author || 'Đang cập nhật'}</span>
+            <span className="muted-author">Chưa có chương</span>
           </div>
         )}
       </div>

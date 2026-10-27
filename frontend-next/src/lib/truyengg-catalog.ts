@@ -43,6 +43,8 @@ function supports(filters: GgFilters) {
 async function queryFor(filters: GgFilters) {
   const query = new URLSearchParams({ sort: filters.sort === 'new' ? '0' : filters.sort === 'hot' ? '4' : '2', status: '-1' });
   if (filters.status) query.set('status', filters.status === 'completed' ? '2' : '0');
+  // Exclude these TruyenGG categories before counting and paginating the home feed.
+  if (filters.excludeManhuaManhwa) query.set('notcategory', '35,49');
   const countries: Record<string, string> = { ja: '4', jp: '4', ko: '3', zh: '1', cn: '1', 'zh-hk': '1', vi: '2', en: '5' };
   if (filters.country) {
     const country = countries[filters.country]; if (!country) return null;
