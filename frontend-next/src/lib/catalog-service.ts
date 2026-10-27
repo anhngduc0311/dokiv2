@@ -153,7 +153,7 @@ export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage
     language: params.language === 'en' ? 'en' : 'vi',
     page: pagination.page, pageSize: pagination.pageSize
   };
-  const cacheKey = 'catalog:browse:multi:v2:' + JSON.stringify(filters);
+  const cacheKey = 'catalog:browse:multi:v3:' + JSON.stringify(filters);
   const cached = await cacheGet<CatalogPage>(cacheKey);
   if (cached) return cached;
   let remoteGenre = filters.genre;

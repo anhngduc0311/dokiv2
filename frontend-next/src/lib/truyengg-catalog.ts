@@ -105,7 +105,7 @@ export async function ggTotal(filters: GgFilters): Promise<number> {
 }
 export async function ggWindow(filters: GgFilters, offset: number, limit: number): Promise<MangaCard[]> {
   if (!limit || !supports(filters)) return [];
-  if (filters.q) return (await suggestions(filters)).slice(offset, offset + limit);
+  if (filters.q) return enrichGgChapters((await suggestions(filters)).slice(offset, offset + limit));
   const parts = splitCountries(filters);
   if (parts.length > 1) {
     const counts = await Promise.all(parts.map(ggTotal)); const output: MangaCard[] = [];
@@ -119,7 +119,21 @@ export async function ggWindow(filters: GgFilters, offset: number, limit: number
   if (!size) return [];
   const start = Math.floor(offset / size) + 1; const end = Math.min(first.lastPage, Math.floor((offset + limit - 1) / size) + 1);
   const pages = await Promise.all(Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => gridPage(filters, start + i)));
-  return pages.flatMap(p => p.items).slice(offset % size, offset % size + limit);
+  return enrichGgChapters(pages.flatMap(p => p.items).slice(offset % size, offset % size + limit));
+}
+
+async function enrichGgChapters(items: MangaCard[]): Promise<MangaCard[]> {
+  // Grid cards only contain one chapter; details provide real links and dates for all three.
+  for (let offset = 0; offset < items.length; offset += 5) {
+    await Promise.allSettled(items.slice(offset, offset + 5).map(async manga => {
+      const detail = await getGgDetail(manga.id);
+      if (!detail) return;
+      manga.chapters = [...detail.chapters]
+        .sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0) || b.number - a.number)
+        .slice(0, 3);
+    }));
+  }
+  return items;
 }
 
 export async function getGgDetail(id: string): Promise<{ manga: MangaCard; chapters: ChapterCard[]; refs: GgReference[] } | null> {

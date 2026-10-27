@@ -32,7 +32,11 @@ globalThis.fetch = async url => {
   if (parsed.pathname === '/manga') return Response.json({data: [story], total: 6185});
   if (parsed.pathname === '/statistics/manga') return Response.json({statistics: {'story-id': {rating: {bayesian: 8.2}, follows: 12345}}});
   if (parsed.pathname === '/manga/story-id/feed') return Response.json({data: [
-    {id: 'chapter-id', attributes: {chapter: '12.5', translatedLanguage: 'vi', publishAt: '2026-10-22T00:00:00Z'}, relationships: [{type: 'manga', id: 'story-id'}]}
+    {id: 'chapter-id', attributes: {chapter: '12.5', translatedLanguage: 'vi', publishAt: '2026-10-22T00:00:00Z'}, relationships: [{type: 'manga', id: 'story-id'}]},
+    {id: 'duplicate', attributes: {chapter: '12.5'}},
+    {id: 'chapter-12', attributes: {chapter: '12'}},
+    {id: 'chapter-11', attributes: {chapter: '11'}},
+    {id: 'chapter-10', attributes: {chapter: '10'}}
   ]});
   if (parsed.pathname === '/manga/older-story/feed') return Response.json({data: [
     {id: 'older-chapter', attributes: {chapter: '8', translatedLanguage: 'en', readableAt: '2026-09-01T00:00:00Z', pages: 20}}
@@ -48,7 +52,8 @@ try {
   assert.equal(page.items[0].follows, 12345);
   assert.equal(page.items[0].chapters[0].id, 'chapter-id');
   const feedQuery = calls.find(u => u.pathname === '/manga/story-id/feed').searchParams;
-  assert.equal(feedQuery.get('limit'), '1');
+  assert.equal(feedQuery.get('limit'), '20');
+  assert.deepEqual(page.items[0].chapters.map(c => c.number), [12.5, 12, 11], 'Show three distinct latest chapters, skipping duplicate releases');
   assert.equal(feedQuery.get('translatedLanguage[]'), 'vi');
   assert.equal(feedQuery.get('order[readableAt]'), 'desc');
   assert.equal(feedQuery.get('includeEmptyPages'), '0');

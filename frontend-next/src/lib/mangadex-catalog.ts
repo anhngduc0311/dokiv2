@@ -90,14 +90,20 @@ export async function enrichMangaDexCards(items: MangaCard[], language = 'vi') {
       }
     })(),
     (async () => {
-      const q = new URLSearchParams({ limit: '1', 'translatedLanguage[]': language === 'en' ? 'en' : 'vi',
+      const q = new URLSearchParams({ limit: '20', 'translatedLanguage[]': language === 'en' ? 'en' : 'vi',
         'order[readableAt]': 'desc', includeExternalUrl: '0', includeEmptyPages: '0', includeFuturePublishAt: '0' });
       q.append('contentRating[]', 'safe'); q.append('contentRating[]', 'suggestive');
       // Query each story's feed so older updates are not lost outside the global latest 100.
       for (let offset = 0; offset < items.length; offset += 5) {
         await Promise.allSettled(items.slice(offset, offset + 5).map(async manga => {
           const data = await mangaDexGet('/manga/' + encodeURIComponent(manga.id) + '/feed?' + q);
-          manga.chapters = (data.data || []).slice(0, 1).map((c: any): ChapterCard => ({
+          const seen = new Set<string>();
+          manga.chapters = (data.data || []).filter((c: any) => {
+            const key = c.attributes?.chapter ?? c.id;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          }).slice(0, 3).map((c: any): ChapterCard => ({
             id: c.id, mangaId: manga.id,
             title: (c.attributes?.chapter ? 'Chương ' + c.attributes.chapter : 'Oneshot') + (c.attributes?.title ? ' · ' + c.attributes.title : ''),
             number: Number.parseFloat(c.attributes?.chapter || '0') || 0,
