@@ -43,8 +43,7 @@ export function MobileDrawer({
               aria-hidden="true"
             />
             <span className="brand-wordmark">
-              doki<span>truyen</span>
-              <span className="brand-period">.</span>
+              <span className="brand-doki">Doki</span><span className="brand-truyen">Truyen</span>
             </span>
           </Link>
           <button

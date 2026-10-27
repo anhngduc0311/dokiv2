@@ -186,8 +186,7 @@ export function AuthView({ isRegister = false }: AuthViewProps) {
             aria-hidden="true"
           />
           <span className="brand-wordmark">
-            doki<span>truyen</span>
-            <span className="brand-period">.</span>
+            <span className="brand-doki">Doki</span><span className="brand-truyen">Truyen</span>
           </span>
         </Link>
         <h1>{isRegister ? 'Tạo tài khoản' : 'Chào mừng trở lại'}</h1>

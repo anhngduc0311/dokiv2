@@ -37,11 +37,30 @@
   box-shadow: 0 8px 30px #00000014;
 }
 .header-inner { max-width: 1680px; padding: 0 22px; gap: 20px; }
-.brand { gap: 8px; font-size: 23px; letter-spacing: -1px; flex-shrink: 0; }
-.brand-symbol { width: 40px; height: 40px; object-fit: contain; }
-.brand .brand-wordmark { font-weight: 800; }
-.brand .brand-wordmark > span { font-weight: 700; }
-.brand .brand-wordmark > .brand-period { color: var(--accent); }
+.brand { gap: 9px; font-size: 23px; letter-spacing: -.75px; flex-shrink: 0; }
+.brand-symbol {
+  width: 40px; height: 40px; object-fit: contain;
+  filter: drop-shadow(0 2px 5px #b76e9126);
+}
+.brand .brand-wordmark {
+  display: inline-flex; align-items: baseline; white-space: nowrap;
+  font-weight: 800; line-height: 1.2;
+}
+.brand .brand-wordmark > .brand-doki {
+  color: #e39bbb; font-weight: 800;
+  background: linear-gradient(120deg, #f0abc6 10%, #b8a0e8 95%);
+  background-clip: text; -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.brand .brand-wordmark > .brand-truyen { color: var(--text); font-weight: 700; }
+:root[data-theme='light'] .brand .brand-wordmark > .brand-doki {
+  color: #925372;
+  background-image: linear-gradient(120deg, #a34572 10%, #7052a4 95%);
+}
+.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 6px; }
+@media (forced-colors: active) {
+  .brand .brand-wordmark > .brand-doki { background: none; -webkit-text-fill-color: currentColor; }
+}
 .header-navigation { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .header-navigation a, .header-navigation button {
   display: inline-flex; align-items: center; gap: 5px; padding: 10px 9px;
