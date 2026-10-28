@@ -371,11 +371,15 @@ export async function getMangaChapters(
   if (gg) return gg;
   await ensureDbInitialized();
 
-  // Try DB chapters
+  // Only locally managed stories use the stored chapter list. Crawled stories
+  // may have incomplete placeholder rows; their source feed is authoritative.
   const rows = await sql`
     SELECT "Id", "MangaId", "Number", "Title", "Language", "PublishedAt", "ContentType", array_length("Pages", 1) as pages_count
     FROM "Chapters"
     WHERE "MangaId" = ${mangaId} AND "Language" = ${language}
+      AND EXISTS (
+        SELECT 1 FROM "Mangas" m WHERE m."Id" = ${mangaId} AND m."SourceType" <> 'crawl'
+      )
       AND "PublishedAt" <= CURRENT_TIMESTAMP
       AND ("ScheduledPublishAt" IS NULL OR "ScheduledPublishAt" <= CURRENT_TIMESTAMP)
     ORDER BY "Number" DESC
