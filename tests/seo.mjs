@@ -90,7 +90,7 @@ const chapter = { id: 'chapter-id', mangaId: manga.id, title: 'Chương 1', numb
 const Link = ({ href, children }) => React.createElement('a', { href }, children);
 const common = {
   react: React, 'react/jsx-runtime': require('react/jsx-runtime'), 'next/link': Link,
-  'next/navigation': { useParams: () => ({ id: manga.id }), useRouter: () => ({}), useSearchParams: () => new URLSearchParams() },
+  'next/navigation': { useParams: () => ({ id: manga.id }), usePathname: () => '/chuong/chapter-id', useRouter: () => ({}), useSearchParams: () => new URLSearchParams() },
   '../../../lib/api': { api: { query: () => '' } }, '../../../lib/utils': utils,
   '../../../contexts/store-context': { useStore: () => ({ settings: { language: 'vi', width: 900, dataSaver: false }, history: [], follows: [], isFollowed: () => false }) },
   '../../../components/ui/icon': { Icon: () => null },

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { Reader as ReaderData, ZoomLevel, SpeedLevel } from '../../../types';
 import { api } from '../../../lib/api';
 import { useStore } from '../../../contexts/store-context';
@@ -35,11 +35,10 @@ const SPEED_PPS: Record<number, number> = {
 };
 
 function ReaderContent({ initialData }: { initialData: ReaderData }) {
-  const params = useParams();
-  const router = useRouter();
+  const pathname = usePathname();
   const store = useStore();
 
-  const id = String(params?.id || '');
+  const id = pathname?.split('/')[2] || initialData.chapter.id;
 
   const [data, setData] = useState<ReaderData | null>(initialData);
   const [loading, setLoading] = useState(false);
@@ -244,7 +243,7 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
   };
 
   const position = (currentData: ReaderData | null) => {
-    return currentData?.navigation.findIndex(c => c.id === id) ?? -1;
+    return currentData?.navigation.findIndex(c => c.id === currentData.chapter.id) ?? -1;
   };
 
   const previous = (currentData: ReaderData | null) => {
@@ -275,8 +274,20 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
           img.src = p;
         }
       });
-    } catch {}
+    } catch {
+      if (preloadedNextIdRef.current === nextChap.id) preloadedNextIdRef.current = '';
+    }
   };
+
+  // Warm the next chapter while reading, rather than waiting for its last images.
+  useEffect(() => {
+    if (!data) return;
+    document.title = `${data.manga.title} - ${data.chapter.title || `Chương ${data.chapter.number}`} | DokiTruyen`;
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (canonical) canonical.href = new URL(`/chuong/${encodeURIComponent(data.chapter.id)}`, window.location.origin).href;
+    const timer = setTimeout(() => { void preloadNextChapter(data); }, 400);
+    return () => clearTimeout(timer);
+  }, [data?.chapter.id]);
 
   const onLoaded = (i: number, event: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const image = event.currentTarget;
@@ -363,8 +374,9 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
 
   const loadChapter = async () => {
     const n = ++epochRef.current;
-    setData(null);
-    setLoading(true);
+    const cached = id === initialData.chapter.id ? initialData : api.getCached<ReaderData>('/chapters/' + id);
+    setData(cached || null);
+    setLoading(!cached);
     setError('');
     setFailed(new Set());
     setLoaded(new Set());
@@ -375,7 +387,7 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
     scrollToTopInstant();
 
     try {
-      const r = await api.request<ReaderData>('/chapters/' + id, 'GET', undefined, true);
+      const r = cached || await api.request<ReaderData>('/chapters/' + id, 'GET', undefined, true);
       if (n !== epochRef.current) return;
       setData(r);
       void store.record(r).catch(() => {});
@@ -385,8 +397,10 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
     } catch (e) {
       if (n === epochRef.current) setError(message(e));
     } finally {
-      if (n === epochRef.current) setLoading(false);
-      scrollToTopInstant();
+      if (n === epochRef.current) {
+        setLoading(false);
+        scrollToTopInstant();
+      }
     }
   };
 
@@ -395,14 +409,16 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
     setSinglePageIndex(0);
     stopAutoScroll();
     scrollToTopInstant();
-    if (id === initialData.chapter.id) {
-      setData(initialData); setLoading(false); void store.record(initialData).catch(() => {});
-    } else { void loadChapter(); }
+    void loadChapter();
+    return () => { epochRef.current++; };
   }, [id]);
 
   const go = (targetId: string) => {
+    if (targetId === id) return;
     scrollToTopInstant();
-    router.push(`/chuong/${targetId}`);
+    // Native history keeps the reader mounted so its prefetched JSON/images
+    // can be used immediately, without a second server render of the chapter.
+    window.history.pushState(null, '', `/chuong/${encodeURIComponent(targetId)}`);
   };
 
   const move = (direction: number) => {
