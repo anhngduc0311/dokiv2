@@ -141,6 +141,7 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
   };
 
   const stopAutoScroll = () => {
+    isAutoScrollingRef.current = false;
     setIsAutoScrolling(false);
     if (autoScrollAnimFrameRef.current !== null) {
       cancelAnimationFrame(autoScrollAnimFrameRef.current);
@@ -150,6 +151,8 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
 
   const startAutoScroll = () => {
     if (isAutoScrollingRef.current) return;
+    // A phone can run the first frame before React commits the button state.
+    isAutoScrollingRef.current = true;
     setIsAutoScrolling(true);
     scrollSubpixelRef.current = 0;
     lastFrameTimeRef.current = performance.now();
@@ -167,12 +170,15 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
 
         const intPixels = Math.floor(scrollSubpixelRef.current);
         if (intPixels > 0) {
-          window.scrollBy(0, intPixels);
+          // Each animation frame supplies its own movement. CSS smooth scrolling
+          // would restart an animation on every frame and stall on mobile.
+          window.scrollBy({ top: intPixels, left: 0, behavior: 'instant' });
           scrollSubpixelRef.current -= intPixels;
         }
       }
 
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      const scrollRoot = document.scrollingElement || document.documentElement;
+      const maxScroll = Math.max(0, scrollRoot.scrollHeight - window.innerHeight);
       if (window.scrollY >= maxScroll - 5) {
         stopAutoScroll();
         store.notify('Đã cuộn đến cuối chương truyện.');
@@ -186,7 +192,7 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
   };
 
   const toggleAutoScroll = () => {
-    if (isAutoScrolling) {
+    if (isAutoScrollingRef.current) {
       stopAutoScroll();
     } else {
       startAutoScroll();
@@ -785,6 +791,8 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
                       type="button"
                       className={`tool-btn btn-as-action ${isAutoScrolling ? 'active' : ''}`}
                       onClick={toggleAutoScroll}
+                      aria-label={isAutoScrolling ? 'Tạm dừng tự cuộn' : 'Bật tự động cuộn'}
+                      aria-pressed={isAutoScrolling}
                       title={
                         isAutoScrolling
                           ? 'Tạm dừng tự cuộn (Phím Space)'
