@@ -1,4 +1,4 @@
-import { Manga, BannerImage } from '../types';
+import type { Manga, BannerImage } from '../types';
 
 export function hasRomanceGenre(manga: Pick<Manga, 'genres'>): boolean {
   return Array.isArray(manga.genres) && manga.genres.some(genre =>

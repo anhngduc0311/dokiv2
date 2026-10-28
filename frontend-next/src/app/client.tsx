@@ -7,13 +7,15 @@ import { Manga, Page, BannerImage } from '../types';
 import { api } from '../lib/api';
 import { useStore } from '../contexts/store-context';
 import { cleanDescription, message, statuses } from '../lib/utils';
-import { hasRomanceGenre, loadSpotlightImages, rankSpotlightCandidates } from '../lib/spotlight';
+import { hasRomanceGenre, loadSpotlightImages, originalBannerCover, rankSpotlightCandidates } from '../lib/spotlight';
 import { Icon } from '../components/ui/icon';
 import { MangaCard } from '../components/ui/manga-card';
 import { Pagination } from '../components/ui/pagination';
 import { Sidebar } from '../components/layout/sidebar';
 
-function HomeContent({ initialData }: { initialData: Page<Manga> }) {
+type HomeProps = { initialData: Page<Manga>; initialSpotlights: Manga[] };
+
+function HomeContent({ initialData, initialSpotlights }: HomeProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const store = useStore();
@@ -30,12 +32,15 @@ function HomeContent({ initialData }: { initialData: Page<Manga> }) {
   // Spotlight State
   const [spotlightIndex, setSpotlightIndex] = useState(0);
   const [autoPaused, setAutoPaused] = useState(false);
-  const [rankedSpotlights, setRankedSpotlights] = useState<Manga[]>([]);
+  // Render the server-selected story before recommendations or image probes finish.
+  const [rankedSpotlights, setRankedSpotlights] = useState<Manga[]>(initialSpotlights);
   const [failedSpotlights, setFailedSpotlights] = useState<string[]>([]);
-  const [latestSpotlights, setLatestSpotlights] = useState<Manga[]>([]);
+  const [latestSpotlights, setLatestSpotlights] = useState<Manga[]>(initialData.items);
   const [trendingSpotlights, setTrendingSpotlights] = useState<Manga[]>([]);
   const [pool, setPool] = useState<Manga[]>([]);
-  const [spotlightCovers, setSpotlightCovers] = useState<Record<string, string>>({});
+  const [spotlightCovers, setSpotlightCovers] = useState<Record<string, string>>(() =>
+    Object.fromEntries(initialSpotlights.map(m => [m.id, originalBannerCover(m.cover)]))
+  );
   const [descriptions, setDescriptions] = useState<Record<string, string>>({});
   const [following, setFollowing] = useState(false);
 
@@ -119,6 +124,7 @@ function HomeContent({ initialData }: { initialData: Page<Manga> }) {
         () => epoch === selectionEpochRef.current
       );
     })();
+    return () => { selectionEpochRef.current++; };
   }, [pool, trendingSpotlights, latestSpotlights]);
 
   // Fetch description for active spotlight
@@ -622,10 +628,10 @@ function HomeContent({ initialData }: { initialData: Page<Manga> }) {
   );
 }
 
-export default function HomePage({ initialData }: { initialData: Page<Manga> }) {
+export default function HomePage({ initialData, initialSpotlights }: HomeProps) {
   return (
     <Suspense fallback={<div className="loading-panel"><div className="search-spinner"></div></div>}>
-      <HomeContent initialData={initialData} />
+      <HomeContent initialData={initialData} initialSpotlights={initialSpotlights} />
     </Suspense>
   );
 }

@@ -4,7 +4,7 @@ import { catalogPagination, searchMangaDex, mangaDexGet, mapMangaDexManga, enric
 import type { CatalogFilters } from './mangadex-catalog';
 import { ggTotal, ggWindow, getGgDetail, getGgChapters, getGgReader, getGgTags, searchGgTitles } from './truyengg-catalog';
 import { sourceWindow, interleaveSourceItems } from './catalog-pagination';
-import { loadMangaDexChapterFeed, readerNavigation, readMangaDexChapter } from './mangadex-reader';
+import { loadMangaDexChapterFeed, readerNavigation, readMangaDexChapter, ReaderSourceError } from './mangadex-reader';
 import { uniqueChapterSourceMatch, sameStoryTitle, mergeChapterSources, sourceChapterAliases, chapterSourceParts, deduplicateCatalogItems } from './chapter-source-sync';
 import { findChapterSourceLink, saveChapterSourceLink } from './chapter-source-links';
 import { saveGgReferences, findGgReference } from './source-references';
@@ -447,14 +447,16 @@ export async function getChapterReader(chapterId: string): Promise<ReaderData | 
 
   // Try DB chapter
   const chapRows = await sql`
-    SELECT c.*, m."Title" as manga_title, m."Cover" as manga_cover, m."Author" as manga_author
+    SELECT c.*, m."SourceType" as manga_source_type, m."Title" as manga_title, m."Cover" as manga_cover, m."Author" as manga_author
     FROM "Chapters" c
     JOIN "Mangas" m ON m."Id" = c."MangaId"
     WHERE c."Id" = ${chapterId}
     LIMIT 1;
   `;
 
-  if (chapRows && chapRows.length > 0) {
+  // Crawl metadata may contain chapter IDs with no stored images. Read those
+  // IDs from the source, just as the chapter list uses the authoritative feed.
+  if (chapRows.length > 0 && chapRows[0].manga_source_type !== 'crawl') {
     const c = chapRows[0];
     const chapter: ChapterCard = {
       id: c.Id,
@@ -482,6 +484,7 @@ export async function getChapterReader(chapterId: string): Promise<ReaderData | 
     };
 
     const pages: string[] = c.Pages || [];
+    if (!pages.length) throw new ReaderSourceError('Chương này chưa có ảnh để đọc. Vui lòng thử lại sau.');
 
     // Get sibling chapters for navigation
     const siblings = await sql`

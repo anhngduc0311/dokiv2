@@ -3,6 +3,7 @@ import { getHomeCatalog } from '@/lib/catalog-service';
 import { toPage } from '@/lib/seo-data';
 import { pageMetadata, pageNumber, collectionSchema, type SearchParams } from '@/lib/seo';
 import { JsonLd } from '@/components/seo/json-ld';
+import { hasRomanceGenre, rankSpotlightCandidates } from '@/lib/spotlight';
 
 export const dynamic = 'force-dynamic';
 type Props = { searchParams: Promise<SearchParams> };
@@ -13,5 +14,6 @@ export async function generateMetadata({ searchParams }: Props) {
 export default async function Home({ searchParams }: Props) {
   const page = pageNumber((await searchParams).page);
   const data = toPage(await getHomeCatalog(page, 30));
-  return <><JsonLd data={collectionSchema('Truyện mới cập nhật', page > 1 ? `/?page=${page}` : '/', data.items, (page - 1) * 30)} /><HomeClient key={page} initialData={data} /></>;
+  const initialSpotlights = rankSpotlightCandidates(data.items.filter(hasRomanceGenre)).slice(0, 1);
+  return <><JsonLd data={collectionSchema('Truyện mới cập nhật', page > 1 ? `/?page=${page}` : '/', data.items, (page - 1) * 30)} /><HomeClient key={page} initialData={data} initialSpotlights={initialSpotlights} /></>;
 }
