@@ -3,6 +3,7 @@ import { getStoredToken } from './utils';
 
 export class ApiClient {
   private cache = new Map<string, { data: unknown; expiry: number }>();
+  private pendingRequests = new Map<string, Promise<unknown>>();
   private preloadedImages = new Set<string>();
 
   hasCached(path: string): boolean {
@@ -81,6 +82,24 @@ export class ApiClient {
       }
     }
     const token = getStoredToken();
+    // Hover, automatic prefetch and a click can all request the same page.
+    // Share that work so navigation can consume the request already in flight.
+    const pendingKey = JSON.stringify([path, token]);
+    if (shouldCache) {
+      const pending = this.pendingRequests.get(pendingKey);
+      if (pending) return pending as Promise<T>;
+    }
+    const pending = this.fetchRequest<T>(path, method, body, shouldCache, token);
+    if (shouldCache) this.pendingRequests.set(pendingKey, pending);
+    try {
+      return await pending;
+    } finally {
+      if (this.pendingRequests.get(pendingKey) === pending) this.pendingRequests.delete(pendingKey);
+    }
+  }
+
+  private async fetchRequest<T>(path: string, method: string, body: unknown, shouldCache: boolean, token: string | null): Promise<T> {
+    const isGet = method === 'GET';
     const maxRetries = isGet ? 2 : 0;
     let lastError: unknown;
 

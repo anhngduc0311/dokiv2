@@ -246,22 +246,20 @@ function HomeContent({ initialData, initialSpotlights }: HomeProps) {
   const prefetchAdjacent = (p: number, t: number) => {
     const max = Math.ceil(t / 30) || 999;
     if (p < max) prefetchPage(p + 1);
-    if (p > 1) prefetchPage(p - 1);
-    if (p + 1 < max) {
-      setTimeout(() => {
-        prefetchPage(p + 2);
-      }, 400);
-    }
+    if (p > 1 && p - 1 !== initialData.page) prefetchPage(p - 1);
   };
 
   // Load Main Home Catalog
   const loadMain = async (p: number) => {
-    if (p === initialData.page) {
-      setItems(initialData.items); setTotal(initialData.total); setLoading(false); return;
-    }
-    const path = '/catalog/home?page=' + p + '&pageSize=30&chapters=3&unique=1';
     const n = ++epochRef.current;
     setError('');
+    if (p === initialData.page) {
+      setItems(initialData.items); setTotal(initialData.total); setLoading(false);
+      prefetchAdjacent(p, initialData.total);
+      restorePosition();
+      return;
+    }
+    const path = '/catalog/home?page=' + p + '&pageSize=30&chapters=3&unique=1';
 
     const cached = api.getCached<Page<Manga>>(path);
     if (cached && cached.items) {
@@ -340,8 +338,10 @@ function HomeContent({ initialData, initialSpotlights }: HomeProps) {
   }, []);
 
   const goPage = (p: number) => {
-    prefetchPage(p);
-    router.push(`/?page=${p}`);
+    if (p === page || p < 1 || p > Math.ceil(total / 30)) return;
+    // Reuse the prefetched JSON instead of waiting for a new server render.
+    setPage(p);
+    window.history.pushState(null, '', p === 1 ? '/' : `/?page=${p}`);
     const section = document.querySelector('.main-content-section');
     const targetY = section ? window.scrollY + section.getBoundingClientRect().top - 96 : 0;
     window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
@@ -499,7 +499,7 @@ function HomeContent({ initialData, initialSpotlights }: HomeProps) {
             </div>
           )}
 
-          <div className="manga-grid">
+          <div className="manga-grid" aria-busy={loading}>
             {loading ? (
               Array.from({ length: 12 }, (_, i) => (
                 <div key={i} className="skeleton skeleton-card"></div>
@@ -509,7 +509,7 @@ function HomeContent({ initialData, initialSpotlights }: HomeProps) {
             )}
           </div>
 
-          {!loading && !error && (
+          {!error && (
             <Pagination
               page={page}
               total={total}
