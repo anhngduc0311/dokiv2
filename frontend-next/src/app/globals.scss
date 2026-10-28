@@ -35,32 +35,34 @@ body, button, input, select, textarea { font-family: var(--font-site), system-ui
 .site-container.reader-container > main { padding-top: 0; }
 
 @media (max-width: 768px) {
-  .site-container.reader-container { --reader-toolbar-height: calc(98px + env(safe-area-inset-top, 0px)); }
+  .site-container.reader-container { --reader-toolbar-height: calc(72px + env(safe-area-inset-top, 0px)); }
   main > .reader-container { padding-top: var(--reader-toolbar-height); }
   .reader-header-inner {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: 36px 36px;
+    grid-template-rows: 28px 30px;
     height: auto;
-    min-height: 96px;
-    padding: calc(8px + env(safe-area-inset-top, 0px)) 8px 8px;
-    gap: 8px;
+    min-height: 70px;
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 8px 4px;
+    gap: 4px;
     .reader-title-box {
       grid-column: 1 / -1;
       min-width: 0;
-      gap: 10px;
+      gap: 8px;
     }
+    .btn-back-comic { width: 28px; height: 28px; }
     .title-meta { display: flex !important; overflow: hidden; }
-    .title-meta .comic-name, .title-meta .chap-badge { max-width: 100%; }
+    .title-meta .comic-name { max-width: 100%; font-size: 12px; line-height: 1.4; }
+    .title-meta .chap-badge { display: none; }
     .reader-nav-controls {
       width: 100%;
       min-width: 0;
       justify-content: flex-start;
       gap: 4px;
       .chap-select-wrap { max-width: none; }
-      .chap-select-wrap select { max-width: 100%; height: 34px; font-size: 12px; }
+      .chap-select-wrap select { max-width: 100%; height: 30px; font-size: 12px; }
       .chap-select-wrap .select-arrow { width: 12px; height: 12px; }
-      .btn-nav-chap { width: 32px; min-width: 32px; height: 34px; }
+      .btn-nav-chap { width: 30px; min-width: 30px; height: 30px; }
     }
     .reader-tools { min-width: 0; gap: 4px; }
   }
