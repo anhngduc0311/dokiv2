@@ -5583,7 +5583,7 @@ small {
       justify-content: center;
       min-width: 0;
 
-      .btn-nav-chap span {
+      .btn-nav-chap > span:not(.app-icon) {
         display: none !important;
       }
 

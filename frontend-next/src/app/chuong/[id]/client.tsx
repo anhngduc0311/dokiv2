@@ -647,6 +647,7 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
                     move(-1);
                   }}
                   title="Chương trước (Phím ←)"
+                  aria-label="Chương trước"
                 >
                   <Icon name="arrowLeft" style={{ width: 14, height: 14 }} />
                   <span>Trước</span>
@@ -662,8 +663,8 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
                     }}
                   >
                     {data.navigation.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.title}
+                      <option key={c.id} value={c.id} title={c.title}>
+                        {c.number > 0 ? `Chương ${c.number}` : c.title}
                       </option>
                     ))}
                   </select>
@@ -679,6 +680,7 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
                     move(1);
                   }}
                   title="Chương sau (Phím →)"
+                  aria-label="Chương sau"
                 >
                   <span>Sau</span>
                   <Icon name="arrowRight" style={{ width: 14, height: 14 }} />
