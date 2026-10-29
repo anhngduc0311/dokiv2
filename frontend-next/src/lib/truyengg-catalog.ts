@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { cacheGet, cacheSet } from './redis';
+import { cacheGet, cacheSet } from './cache';
 import { saveGgReferences, findGgReference } from './source-references';
 import { GG_ORIGIN, ggId, parseGgGrid, parseGgSearch, parseGgDetail, parseGgReaderPages, ggGenres } from './truyengg-parser';
 import type { CatalogFilters } from './mangadex-catalog';

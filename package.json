@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "npm --prefix frontend-next run dev",
     "build": "npm --prefix frontend-next run build",
+    "build:standalone": "npm --prefix frontend-next run build:standalone",
     "start": "npm --prefix frontend-next run start",
     "lint": "npm --prefix frontend-next run lint",
     "test:seo": "node --experimental-strip-types tests/seo.mjs"

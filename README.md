@@ -2,7 +2,7 @@
 
 Tài liệu SEO tự động, sitemap, schema và kiểm tra Core Web Vitals: [SEO.md](SEO.md).
 
-Ứng dụng đọc truyện tranh trực tuyến phát triển bằng **Next.js (App Router)**, tích hợp Neon Serverless PostgreSQL và Upstash Redis. Không phụ thuộc backend ngoài.
+Ứng dụng đọc truyện tranh trực tuyến phát triển bằng **Next.js (App Router)**, tích hợp Neon PostgreSQL cho dữ liệu, cache và hàng đợi nền; cache RAM phục vụ các yêu cầu lặp lại. Không phụ thuộc Redis hoặc backend ngoài.
 
 ## Tính năng chính
 

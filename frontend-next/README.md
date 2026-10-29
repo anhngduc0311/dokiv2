@@ -1,6 +1,28 @@
 # DokiTruyen Next.js
 
-Ứng dụng Next.js App Router dùng Neon PostgreSQL và Redis/Upstash (tùy chọn), không cần chạy backend C# để dùng catalog.
+Ứng dụng Next.js App Router dùng Neon PostgreSQL cho dữ liệu, cache và queue; cache RAM được đọc trước để giảm độ trễ. Không cần Redis/Upstash hoặc backend C#.
+
+## Cache và worker trên cPanel
+
+`DATABASE_URL` là cấu hình bắt buộc. Các bảng `AppCache`, `BackgroundJobs`, `WorkerLeases` được tạo tự động. Catalog được giữ tươi 5 phút và được giữ thêm tối đa 24 giờ để phục vụ trong lúc worker làm mới. Cache thông thường vẫn tuân thủ TTL; mỗi giá trị bị giới hạn 2 MiB và cache RAM bị giới hạn 24 MiB.
+
+Build bằng `npm run build:standalone`; bản build gồm `worker.cjs`. Chạy một lần trước khi mở web:
+
+```sh
+node --env-file=.env worker.cjs --warm
+```
+
+Thiết lập cron mỗi phút, dùng đường dẫn tuyệt đối tới Node.js của môi trường cPanel:
+
+```sh
+cd /home/CPANEL_USER/dokitruyen/release-pg && /home/CPANEL_USER/nodevenv/dokitruyen/24/bin/node --max-old-space-size=160 --env-file=.env worker.cjs >> /home/CPANEL_USER/dokitruyen/worker.log 2>&1
+```
+
+Worker có lease chống chạy chồng, job được nhận nguyên tử bằng `SKIP LOCKED`, có retry tối đa 5 lần với backoff, và có thể nhận lại job khi lease hết hạn. Tác vụ tải nguồn cần an toàn khi chạy lại. Không dùng session advisory lock hoặc LISTEN trên kết nối pooler. Worker dọn cache hết hạn và job hoàn tất cũ theo từng lô. Chỉ lưu JSON/metadata/HTML nhỏ trong cache; không lưu ảnh hoặc video.
+
+`npm run package:cpanel` tạo gói `release-pg` riêng để giữ bản triển khai cũ làm phương án khôi phục. Trước đó cần cài Linux sharp vào `.next/linux-runtime` bằng `npm install --prefix .next/linux-runtime --os=linux --cpu=x64 --libc=glibc --ignore-scripts --no-audit --no-fund sharp@<phiên-bản-sharp-đang-dùng>`.
+
+Chuyển database bằng `scripts/migrate-database.mjs` với `SOURCE_DATABASE_URL` và `TARGET_DATABASE_URL` trong file môi trường riêng; database đích phải trống và ứng dụng phải dừng ghi. Script giữ nguyên ID, dữ liệu, ràng buộc và index, rồi đối chiếu số hàng và checksum từng bảng. Không chỉnh sửa database nguồn.
 
 ## Chạy local
 

@@ -1,5 +1,6 @@
 import { sql, ensureDbInitialized } from './db';
-import { cacheGet, cacheSet } from './redis';
+import { cacheGet, cacheSet } from './cache';
+import { cachedCatalog } from './catalog-cache';
 import { catalogPagination, searchMangaDex, mangaDexGet, mapMangaDexManga, enrichMangaDexCards } from './mangadex-catalog';
 import type { CatalogFilters } from './mangadex-catalog';
 import { ggTotal, ggWindow, getGgDetail, getGgChapters, getGgReader, getGgTags, searchGgTitles } from './truyengg-catalog';
@@ -149,7 +150,21 @@ async function localCatalog(filters: CatalogFilters, genreName = ''): Promise<Ma
 interface UniqueCatalogState { items: MangaCard[]; consumed: number; total: number; nextPage: number; exhausted: boolean }
 const catalogRequests = new Map<string, Promise<CatalogPage>>();
 
-export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage> {
+export function catalogPageKey(params: CatalogFilters): string {
+  const pagination = catalogPagination(params.page, params.pageSize);
+  const normalized = { ...params, page: pagination.page, pageSize: pagination.pageSize };
+  return 'catalog:page:v1:' + JSON.stringify(Object.fromEntries(Object.entries(normalized).sort(([a], [b]) => a.localeCompare(b))));
+}
+
+export async function searchCatalog(params: CatalogFilters, forceRefresh = false): Promise<CatalogPage> {
+  return cachedCatalog(catalogPageKey(params), params, async () => {
+    const result = await loadUniqueCatalog(params);
+    if (forceRefresh && !result.items.length) throw new Error('Upstream refresh returned no stories');
+    return result;
+  }, forceRefresh);
+}
+
+async function loadUniqueCatalog(params: CatalogFilters): Promise<CatalogPage> {
   const { page, pageSize, offset } = catalogPagination(params.page, params.pageSize);
   const { page: _page, pageSize: _size, ...criteria } = params;
   const key = 'catalog:unique:v1:' + JSON.stringify(criteria);
@@ -159,6 +174,7 @@ export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage
     const state = await cacheGet<UniqueCatalogState>(key) || {
       items: [], consumed: 0, total: 0, nextPage: 1, exhausted: false
     };
+    let changed = false;
     // Build one shared prefix before slicing pages, so duplicates cannot cross page boundaries.
     while (!state.exhausted && state.items.length < offset + pageSize) {
       const batch = await searchRawCatalog({ ...criteria, page: state.nextPage, pageSize: 50 });
@@ -167,8 +183,9 @@ export async function searchCatalog(params: CatalogFilters): Promise<CatalogPage
       state.total = batch.total;
       state.nextPage++;
       state.exhausted = !batch.items.length || state.consumed >= batch.total;
+      changed = true;
     }
-    await cacheSet(key, state, 120);
+    if (changed) await cacheSet(key, state, 120);
     return { items: state.items.slice(offset, offset + pageSize),
       total: state.items.length + (state.exhausted ? 0 : Math.max(0, state.total - state.consumed)), page, pageSize };
   })();

@@ -5,15 +5,17 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:standalone": "next build && node scripts/prepare-standalone.mjs && npm run build:worker",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:worker": "esbuild src/worker.ts --bundle --platform=node --target=node24 --format=cjs --outfile=.next/standalone/worker.cjs",
+    "package:cpanel": "node scripts/package-cpanel.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/uuid": "^10.0.0",
-    "@upstash/redis": "^1.39.0",
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",
     "jsonwebtoken": "^9.0.3",
@@ -28,6 +30,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "latest",
     "sass": "latest",

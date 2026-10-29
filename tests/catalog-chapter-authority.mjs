@@ -25,7 +25,8 @@ const dependencies = {
       return sourceType === 'crawl' && query.includes('m."SourceType" <> \'crawl\'') ? [] : storedRows;
     }
   },
-  './redis': { cacheGet: async key => key.startsWith('catalog:merged-chapters:') ? sourceChapters : null },
+  './catalog-cache': { cachedCatalog: (_key, _payload, load) => load() },
+  './cache': { cacheGet: async key => key.startsWith('catalog:merged-chapters:') ? sourceChapters : null },
   './truyengg-catalog': { getGgChapters: async () => null },
   './mangadex-reader': { readerNavigation: chapters => chapters },
   './mangadex-catalog': {}, './catalog-pagination': {}, './chapter-source-sync': {},

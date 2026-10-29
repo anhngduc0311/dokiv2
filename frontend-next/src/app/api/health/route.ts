@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql, ensureDbInitialized } from '@/lib/db';
-import { redis } from '@/lib/redis';
+import { ensureCacheSchema } from '@/lib/cache-schema';
 
 export async function GET() {
   let dbOk = false;
@@ -10,19 +10,15 @@ export async function GET() {
     dbOk = res && res.length > 0;
   } catch {}
 
-  let redisOk = false;
-  if (redis) {
-    try {
-      const pong = await redis.ping();
-      redisOk = pong === 'PONG';
-    } catch {}
-  }
+  let cacheOk = false;
+  try { await ensureCacheSchema(); cacheOk = true; } catch {}
 
   return NextResponse.json({
-    status: dbOk ? 'healthy' : 'degraded',
+    status: dbOk && cacheOk ? 'healthy' : 'degraded',
     database: dbOk ? 'connected' : 'disconnected',
-    redis: redisOk ? 'connected' : 'disabled/unreachable',
-    platform: 'Next.js Serverless (Vercel)',
+    cache: cacheOk ? 'postgresql+memory' : 'unavailable',
+    queue: cacheOk ? 'postgresql' : 'unavailable',
+    platform: 'Next.js on cPanel',
     timestamp: new Date().toISOString()
   });
 }

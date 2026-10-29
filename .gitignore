@@ -3,6 +3,12 @@ node_modules/
 **/node_modules/
 .pnp
 .pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 
 # Next.js & build outputs
 .next/
@@ -13,19 +19,29 @@ build/
 **/build/
 dist/
 **/dist/
+release/
+release-*/
 
-# Environment files
+# Deployment & archive bundles
+*.zip
+*.tar.gz
+*.tgz
+*.tar
+*.rar
+*.7z
+
+# Environment & secrets
 .env
+.env.*
 .env*.local
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 !.env.example
+!.env*.example
 
-# TypeScript
+# TypeScript & linters
 *.tsbuildinfo
 **/*.tsbuildinfo
+.eslintcache
+.stylelintcache
 
 # Debug & runtime logs
 *.log
@@ -33,6 +49,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 # Testing & browser automation state
 coverage/
@@ -40,13 +57,26 @@ coverage/
 .nyc_output/
 test-results/
 playwright-report/
-state/debug/
+blob-report/
+playwright/.cache/
+state/*
+!state/previews/
 state/previews/*chrome*/
 state/previews/reader-*
 state/previews/*.html
 state/previews/*.txt
 state/previews/*.css
 state/previews/*.svg
+state/previews/*.log
+state/previews/*.json
+
+# Databases & local stores
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Cache & hosting platforms
 .vercel
@@ -55,8 +85,13 @@ state/previews/*.svg
 
 # OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
 ehthumbs.db
+ehthumbs_vista.db
 Desktop.ini
 
 # IDE & Editor files
@@ -66,7 +101,12 @@ Desktop.ini
 !.vscode/launch.json
 !.vscode/extensions.json
 .idea/
-*.sublime-project
-*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 *.swp
 *.swo
+*~
+*.sublime-project
+*.sublime-workspace

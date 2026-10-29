@@ -1,13 +1,8 @@
-import { neon, NeonQueryFunction } from '@neondatabase/serverless';
+import { sql } from './db-client';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 
-const databaseUrl =
-  process.env.DATABASE_URL ||
-  'postgresql://neondb_owner:npg_g6oc7HaBNsbG@ep-fragrant-lab-a1g6aad3-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
-
-// Exported singleton neon query function
-export const sql: NeonQueryFunction<false, false> = neon(databaseUrl);
+export { sql };
 
 let dbInitialized = false;
 

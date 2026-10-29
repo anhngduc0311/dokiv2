@@ -38,7 +38,8 @@ const dependencies = {
       throw new Error('Unexpected query');
     }
   },
-  './redis': { cacheGet: async key => key.startsWith('manga:detail:') ? manga
+  './catalog-cache': { cachedCatalog: (_key, _payload, load) => load() },
+  './cache': { cacheGet: async key => key.startsWith('manga:detail:') ? manga
     : key.startsWith('catalog:merged-chapters:') ? navigation : null },
   './mangadex-catalog': { mangaDexGet: async path => {
     requests.push(path);
