@@ -42,7 +42,9 @@ const COUNTRIES: Record<string, string> = {
 
 const SCORES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
-function MangaDetailContent({ initialManga, initialChapters }: { initialManga: Manga; initialChapters: Page<Chapter> }) {
+type MangaDetailProps = { initialManga: Manga; initialChapters: Page<Chapter>; initialChapterError?: string };
+
+function MangaDetailContent({ initialManga, initialChapters, initialChapterError = '' }: MangaDetailProps) {
   const params = useParams();
   const router = useRouter();
   const store = useStore();
@@ -57,7 +59,7 @@ function MangaDetailContent({ initialManga, initialChapters }: { initialManga: M
   const [chapterPage, setChapterPage] = useState(1);
   const [chapterTotal, setChapterTotal] = useState(initialChapters.total);
   const [chapterLoading, setChapterLoading] = useState(false);
-  const [chapterError, setChapterError] = useState('');
+  const [chapterError, setChapterError] = useState(initialChapterError);
   const [firstChapter, setFirstChapter] = useState<Chapter | null>(null);
 
   const [language, setLanguage] = useState(store.settings.language || 'vi');
@@ -999,7 +1001,7 @@ function MangaDetailContent({ initialManga, initialChapters }: { initialManga: M
   );
 }
 
-export default function MangaDetailPage(props: { initialManga: Manga; initialChapters: Page<Chapter> }) {
+export default function MangaDetailPage(props: MangaDetailProps) {
   return (
     <Suspense fallback={<div className="loading-panel"><div className="search-spinner"></div></div>}>
       <MangaDetailContent {...props} />

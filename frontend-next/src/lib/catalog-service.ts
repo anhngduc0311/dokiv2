@@ -1,5 +1,5 @@
 import { sql, ensureDbInitialized } from './db';
-import { cacheGet, cacheSet } from './cache';
+import { cacheGet, cacheRead, cacheReadMany, cacheSet } from './cache';
 import { cachedCatalog } from './catalog-cache';
 import { catalogPagination, searchMangaDex, mangaDexGet, mapMangaDexManga, enrichMangaDexCards } from './mangadex-catalog';
 import type { CatalogFilters } from './mangadex-catalog';
@@ -157,11 +157,27 @@ export function catalogPageKey(params: CatalogFilters): string {
 }
 
 export async function searchCatalog(params: CatalogFilters, forceRefresh = false): Promise<CatalogPage> {
-  return cachedCatalog(catalogPageKey(params), params, async () => {
+  const result = await cachedCatalog(catalogPageKey(params), params, async () => {
     const result = await loadUniqueCatalog(params);
     if (forceRefresh && !result.items.length) throw new Error('Upstream refresh returned no stories');
     return result;
   }, forceRefresh);
+  if (params.language === 'en') return result;
+  const ids = result.items.filter(item => item.source === 'mangadex').map(item => item.id);
+  if (!ids.length) return result;
+  if (forceRefresh) {
+    // Workers refresh already matched sources; card requests never crawl per story.
+    const linked = await sql.query('SELECT "MangaId" FROM "MangaChapterSources" WHERE "MangaId" = ANY($1::uuid[])', [ids]).catch(() => []);
+    for (const row of linked) {
+      await canonicalChapterFeed(row.MangaId, 'vi').catch(() => undefined);
+    }
+  }
+  // Overlay after reading the page cache so opening a story also updates cached cards.
+  const feeds = await cacheReadMany<ChapterCard[]>(ids.map(id => 'catalog:merged-chapters:v2:' + id));
+  return { ...result, items: result.items.map(item => {
+    const feed = item.source === 'mangadex' ? feeds.get('catalog:merged-chapters:v2:' + item.id)?.value : undefined;
+    return feed?.length ? { ...item, chapters: [...readerNavigation(feed)].reverse().slice(0, 3) } : item;
+  }) };
 }
 
 async function loadUniqueCatalog(params: CatalogFilters): Promise<CatalogPage> {
@@ -304,11 +320,17 @@ export async function getMangaDetail(id: string): Promise<MangaCard | null> {
 
 async function mangaDexChapterFeed(id: string, language: string): Promise<ChapterCard[]> {
   const key = 'catalog:md:chapter-feed:v2:' + id + ':' + language;
-  const cached = await cacheGet<ChapterCard[]>(key);
-  if (cached) return cached;
-  const items = await loadMangaDexChapterFeed(id, language, mangaDexGet);
-  await cacheSet(key, items, 300);
-  return items;
+  const cached = await cacheRead<ChapterCard[]>(key);
+  if (cached?.fresh) return cached.value;
+  try {
+    const items = await loadMangaDexChapterFeed(id, language, mangaDexGet);
+    await cacheSet(key, items, 300, 86400);
+    return items;
+  } catch (error) {
+    // A source connection failure must not discard the last complete feed.
+    if (cached) return cached.value;
+    throw error;
+  }
 }
 
 const chapterSyncRequests = new Map<string, Promise<ChapterCard[]>>();
@@ -366,7 +388,7 @@ async function canonicalChapterFeed(id: string, language: string): Promise<Chapt
         aliases.push(...mapped);
       }
       const merged = mergeChapterSources(primary, aliases);
-      await cacheSet('catalog:merged-chapters:v2:' + id, merged, 300);
+      await cacheSet('catalog:merged-chapters:v2:' + id, merged, 300, 86400);
       return merged;
     } catch {
       // A supplemental source outage must not hide readable MangaDex chapters.

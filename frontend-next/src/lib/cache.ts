@@ -56,6 +56,35 @@ export async function cacheGet<T = unknown>(key: string): Promise<T | null> {
   return hit?.fresh ? hit.value : null;
 }
 
+export async function cacheReadMany<T>(keys: string[]): Promise<Map<string, CacheEntry<T>>> {
+  const result = new Map<string, CacheEntry<T>>();
+  const missing: string[] = [];
+  for (const key of new Set(keys)) {
+    const local = memory.get(key);
+    if (local && local.staleUntil > Date.now()) {
+      result.set(key, { value: JSON.parse(local.json), fresh: local.expires > Date.now() });
+      if (local.checkedAt > Date.now() - 15000) continue;
+    }
+    missing.push(key);
+  }
+  if (!missing.length || retryAfter > Date.now()) return result;
+  try {
+    await ensureCacheSchema();
+    const rows = await sql.query('SELECT "Key", "Value", "ExpiresAt", "StaleUntil" FROM "AppCache" WHERE "Key" = ANY($1::text[]) AND "StaleUntil" > now()', [missing], {
+      fetchOptions: { signal: AbortSignal.timeout(2000) },
+    });
+    for (const key of missing) result.delete(key);
+    for (const row of rows) {
+      const entry = { json: JSON.stringify(row.Value), expires: Date.parse(row.ExpiresAt), staleUntil: Date.parse(row.StaleUntil), checkedAt: Date.now() };
+      remember(row.Key, entry);
+      result.set(row.Key, { value: JSON.parse(entry.json), fresh: entry.expires > Date.now() });
+    }
+  } catch {
+    retryAfter = Date.now() + 15000;
+  }
+  return result;
+}
+
 export async function cacheSet(key: string, value: unknown, ttlSeconds = 300, staleSeconds = 0, requirePersistence = false): Promise<void> {
   const json = JSON.stringify(value);
   if (json === undefined || Buffer.byteLength(json) > MAX_ENTRY_BYTES) {

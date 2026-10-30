@@ -17,7 +17,8 @@ async function ggHtml(path: string, search?: string): Promise<string> {
       method: search === undefined ? 'GET' : 'POST',
       headers: search === undefined ? headers : { ...headers, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
       body: search === undefined ? undefined : new URLSearchParams({ search }),
-      signal: AbortSignal.timeout(10000), next: { revalidate: 300 }
+      // cacheGet/cacheSet above already persist this response in PostgreSQL.
+      signal: AbortSignal.timeout(10000), cache: 'no-store'
     });
     if (!res.ok) throw new Error('Nguồn TruyenGG tạm thời không phản hồi.');
     const html = await res.text();

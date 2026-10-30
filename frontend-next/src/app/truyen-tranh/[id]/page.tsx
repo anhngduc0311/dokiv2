@@ -17,7 +17,12 @@ export default async function MangaPage({ params }: Props) {
   const { id } = await params;
   const manga = await loadManga(id);
   if (!manga) notFound();
-  const chapters = await getMangaChapters(id, 1, false, 'vi');
+  let chapterError = '';
+  const chapters = await getMangaChapters(id, 1, false, 'vi').catch(error => {
+    console.error('Chapter feed unavailable', id, error);
+    chapterError = 'Chưa tải được danh sách chương. Vui lòng thử lại.';
+    return { items: [], total: 0, page: 1, pageSize: 1 };
+  });
   const path = `/truyen-tranh/${encodeURIComponent(id)}`;
   const schema = { '@context': 'https://schema.org', '@type': 'ComicSeries', '@id': absoluteUrl(path) + '#series',
     name: manga.title, alternateName: manga.alternativeTitle || undefined, url: absoluteUrl(path),
@@ -26,5 +31,5 @@ export default async function MangaPage({ params }: Props) {
     genre: manga.genres, inLanguage: 'vi',
   };
   return <><JsonLd data={schema} /><JsonLd data={breadcrumbSchema([{ name: 'Trang chủ', path: '/' }, { name: 'Truyện tranh', path: '/tim-truyen-nang-cao' }, { name: manga.title, path }])} />
-    <MangaClient key={id} initialManga={toManga(manga)} initialChapters={{ ...chapters, items: chapters.items.map(c => ({ ...c, group: c.group || '' })) }} /></>;
+    <MangaClient key={id} initialManga={toManga(manga)} initialChapterError={chapterError} initialChapters={{ ...chapters, items: chapters.items.map(c => ({ ...c, group: c.group || '' })) }} /></>;
 }

@@ -3,6 +3,8 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   output: 'standalone',
   images: {
+    // cPanel's account quota is smaller than the server-wide free disk space.
+    maximumDiskCacheSize: 256 * 1024 * 1024,
     formats: ['image/avif', 'image/webp'],
     localPatterns: [
       // Proxy URLs contain a different encoded source URL for each cover.

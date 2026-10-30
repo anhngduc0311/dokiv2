@@ -1,4 +1,5 @@
 import type { MangaCard, CatalogPage, ChapterCard } from './catalog-service';
+import { get } from 'node:https';
 
 const API = 'https://api.mangadex.org';
 export interface CatalogFilters {
@@ -44,11 +45,51 @@ export function mangaDexQuery(filters: CatalogFilters, offset: number, limit: nu
   return query;
 }
 
-export async function mangaDexGet(path: string): Promise<any> {
-  const response = await fetch(API + path, {
-    signal: AbortSignal.timeout(12000),
-    next: { revalidate: 300 }
+
+// Use a fresh Node HTTPS connection if the fetch connection pool is disrupted.
+function mangaDexHttps(path: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const request = get('https://api.mangadex.org' + path, {
+      agent: false,
+      signal: AbortSignal.timeout(6000),
+      headers: { Accept: 'application/json', 'User-Agent': 'DokiTruyen/1.0', Connection: 'close' },
+    }, response => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        reject(new Error('Nguồn truyện tạm thời không phản hồi. Vui lòng thử lại.'));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      let bytes = 0;
+      response.on('data', (chunk: Buffer) => {
+        bytes += chunk.length;
+        if (bytes > 8 * 1024 * 1024) {
+          response.destroy(new Error('Source response exceeds the size limit'));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      response.on('end', () => {
+        try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
+        catch (error) { reject(error); }
+      });
+      response.on('error', reject);
+    });
+    request.on('error', reject);
   });
+}
+
+export async function mangaDexGet(path: string): Promise<any> {
+  let response: Response;
+  try {
+    response = await fetch(API + path, {
+    signal: AbortSignal.timeout(6000),
+    // Catalog responses are cached by the PostgreSQL cache layer.
+    cache: 'no-store',
+    });
+  } catch {
+    return mangaDexHttps(path);
+  }
   if (!response.ok) throw new Error('Nguồn truyện tạm thời không phản hồi. Vui lòng thử lại.');
   return response.json();
 }

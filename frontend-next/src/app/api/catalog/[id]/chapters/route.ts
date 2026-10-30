@@ -8,6 +8,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const ascending = searchParams.get('ascending') === 'true';
   const language = searchParams.get('language') === 'en' ? 'en' : 'vi';
 
-  const data = await getMangaChapters(id, page, ascending, language);
-  return NextResponse.json(data);
+  try {
+    const data = await getMangaChapters(id, page, ascending, language);
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Chapter feed unavailable', id, error);
+    return NextResponse.json({ message: 'Chưa tải được danh sách chương. Vui lòng thử lại.' }, {
+      status: 503,
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
 }
