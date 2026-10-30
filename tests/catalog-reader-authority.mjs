@@ -39,7 +39,7 @@ const dependencies = {
     }
   },
   './catalog-cache': { cachedCatalog: (_key, _payload, load) => load() },
-  './cache': { cacheGet: async key => key.startsWith('manga:detail:') ? manga
+  './cache': { cacheRead: async () => null, cacheSet: async () => {}, cacheGet: async key => key.startsWith('manga:detail:') ? manga
     : key.startsWith('catalog:merged-chapters:') ? navigation : null },
   './mangadex-catalog': { mangaDexGet: async path => {
     requests.push(path);

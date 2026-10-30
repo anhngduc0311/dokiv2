@@ -454,6 +454,22 @@ export async function getMangaChapters(
   return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
 }
 
+async function readerSourceGet(path: string): Promise<any> {
+  const imageServer = path.startsWith('/at-home/server/');
+  const key = 'reader:md:response:v1:' + path;
+  const cached = await cacheRead<any>(key);
+  if (cached?.fresh) return cached.value;
+  try {
+    const result = await mangaDexGet(path);
+    // Image server addresses are short lived; never reuse an expired address.
+    await cacheSet(key, result, imageServer ? 60 : 300, imageServer ? 0 : 86400);
+    return result;
+  } catch (error) {
+    if (cached && !imageServer) return cached.value;
+    throw error;
+  }
+}
+
 // 6. CHAPTER READER
 export async function getChapterReader(chapterId: string): Promise<ReaderData | null> {
   // Apply publication rules before rendering a local chapter or its metadata.
@@ -554,7 +570,7 @@ export async function getChapterReader(chapterId: string): Promise<ReaderData | 
   }
 
   return readMangaDexChapter(chapterId, {
-    get: mangaDexGet,
+    get: readerSourceGet,
     manga: getMangaDetail,
     chapters: canonicalChapterFeed
   });

@@ -34,15 +34,17 @@ const SPEED_PPS: Record<number, number> = {
   4: 220
 };
 
-function ReaderContent({ initialData }: { initialData: ReaderData }) {
+type ReaderProps = { initialData: ReaderData | null; chapterId?: string; initialError?: string };
+
+function ReaderContent({ initialData, chapterId = '', initialError = '' }: ReaderProps) {
   const pathname = usePathname();
   const store = useStore();
 
-  const id = pathname?.split('/')[2] || initialData.chapter.id;
+  const id = pathname?.split('/')[2] || chapterId || initialData?.chapter.id || '';
 
   const [data, setData] = useState<ReaderData | null>(initialData);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError);
   const [failed, setFailed] = useState<Set<number>>(new Set());
   const [loaded, setLoaded] = useState<Set<number>>(new Set());
   const [fallbackUrls, setFallbackUrls] = useState<Map<number, string>>(new Map());
@@ -374,7 +376,7 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
 
   const loadChapter = async () => {
     const n = ++epochRef.current;
-    const cached = id === initialData.chapter.id ? initialData : api.getCached<ReaderData>('/chapters/' + id);
+    const cached = id === initialData?.chapter.id ? initialData : api.getCached<ReaderData>('/chapters/' + id);
     setData(cached || null);
     setLoading(!cached);
     setError('');
@@ -1268,10 +1270,10 @@ function ReaderContent({ initialData }: { initialData: ReaderData }) {
   );
 }
 
-export default function ReaderPage({ initialData }: { initialData: ReaderData }) {
+export default function ReaderPage(props: ReaderProps) {
   return (
     <Suspense fallback={<div className="loading-panel"><div className="search-spinner"></div></div>}>
-      <ReaderContent initialData={initialData} />
+      <ReaderContent {...props} />
     </Suspense>
   );
 }

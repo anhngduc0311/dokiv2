@@ -9,6 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!data) return NextResponse.json({ message: 'Không tìm thấy chương truyện.' }, { status: 404 });
     return NextResponse.json(data);
   } catch (error) {
+    console.error('Reader source unavailable', id, error);
     return NextResponse.json({
       message: error instanceof ReaderSourceError ? error.message : 'Chưa tải được chương. Vui lòng thử lại.'
     }, { status: 502 });

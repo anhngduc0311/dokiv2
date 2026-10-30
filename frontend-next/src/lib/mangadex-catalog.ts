@@ -2,6 +2,11 @@ import type { MangaCard, CatalogPage, ChapterCard } from './catalog-service';
 import { get } from 'node:https';
 
 const API = 'https://api.mangadex.org';
+const SOURCE_HEADERS = { Accept: 'application/json', 'User-Agent': 'DokiTruyen/1.0 (+https://dokitruyen.com)' };
+function sourceApi() {
+  const proxy = process.env.MANGADEX_PROXY_URL?.trim().replace(/\/$/, '');
+  return proxy ? proxy + '/api' : API;
+}
 export interface CatalogFilters {
   excludeManhuaManhwa?: boolean;
   source?: string;
@@ -49,10 +54,10 @@ export function mangaDexQuery(filters: CatalogFilters, offset: number, limit: nu
 // Use a fresh Node HTTPS connection if the fetch connection pool is disrupted.
 function mangaDexHttps(path: string): Promise<any> {
   return new Promise((resolve, reject) => {
-    const request = get('https://api.mangadex.org' + path, {
+    const request = get(sourceApi() + path, {
       agent: false,
       signal: AbortSignal.timeout(6000),
-      headers: { Accept: 'application/json', 'User-Agent': 'DokiTruyen/1.0', Connection: 'close' },
+      headers: { ...SOURCE_HEADERS, Connection: 'close' },
     }, response => {
       if (response.statusCode !== 200) {
         response.resume();
@@ -82,10 +87,11 @@ function mangaDexHttps(path: string): Promise<any> {
 export async function mangaDexGet(path: string): Promise<any> {
   let response: Response;
   try {
-    response = await fetch(API + path, {
-    signal: AbortSignal.timeout(6000),
-    // Catalog responses are cached by the PostgreSQL cache layer.
-    cache: 'no-store',
+    response = await fetch(sourceApi() + path, {
+      signal: AbortSignal.timeout(6000),
+      headers: SOURCE_HEADERS,
+      // Catalog responses are cached by the PostgreSQL cache layer.
+      cache: 'no-store',
     });
   } catch {
     return mangaDexHttps(path);

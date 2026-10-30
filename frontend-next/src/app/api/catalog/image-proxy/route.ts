@@ -25,7 +25,10 @@ export async function GET(req: Request) {
       referrer = 'https://truyenggvn.com/';
     }
 
-    const res = await fetch(targetUrl, {
+    const proxy = process.env.MANGADEX_PROXY_URL?.trim().replace(/\/$/, '');
+    const relayImage = proxy && uri.protocol === 'https:' && !uri.port && !uri.username && !uri.password
+      && (uri.hostname === 'uploads.mangadex.org' || uri.hostname === 'mangadex.org' || uri.hostname.endsWith('.mangadex.network'));
+    const res = await fetch(relayImage ? proxy + '/image?url=' + encodeURIComponent(targetUrl) : targetUrl, {
       cache: 'no-store',
       headers: {
         'User-Agent':

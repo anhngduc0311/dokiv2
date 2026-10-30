@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import ReaderClient from './client';
 import { loadReader } from '@/lib/seo-data';
@@ -7,15 +8,27 @@ import { JsonLd } from '@/components/seo/json-ld';
 
 export const dynamic = 'force-dynamic';
 type Props = { params: Promise<{ id: string }> };
+const readerPageData = cache(async (id: string) => {
+  try { return { data: await loadReader(id), unavailable: false }; }
+  catch (error) {
+    console.error('Reader source unavailable', id, error);
+    return { data: null, unavailable: true };
+  }
+});
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
-  const data = await loadReader(id);
+  const { data, unavailable } = await readerPageData(id);
+  if (unavailable) return {
+    ...pageMetadata('Chưa tải được chương', 'Nguồn truyện tạm thời không phản hồi. Vui lòng thử lại.', `/chuong/${encodeURIComponent(id)}`),
+    robots: { index: false, follow: true },
+  };
   if (!data) notFound();
   return pageMetadata(`${data.manga.title} - ${data.chapter.title || `Chương ${data.chapter.number}`}`, `Đọc ${data.manga.title} - ${data.chapter.title || `Chương ${data.chapter.number}`} tiếng Việt. Xem danh sách chương và tiếp tục đọc tại DokiTruyen.`, `/chuong/${encodeURIComponent(id)}`, data.manga.cover);
 }
 export default async function ChapterPage({ params }: Props) {
   const { id } = await params;
-  const data = await loadReader(id);
+  const { data, unavailable } = await readerPageData(id);
+  if (unavailable) return <ReaderClient key={id} chapterId={id} initialData={null} initialError="Nguồn truyện tạm thời không phản hồi. Vui lòng thử lại." />;
   if (!data) notFound();
   const path = `/chuong/${encodeURIComponent(id)}`;
   const mangaPath = `/truyen-tranh/${encodeURIComponent(data.manga.id)}`;
