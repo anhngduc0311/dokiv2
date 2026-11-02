@@ -106,14 +106,13 @@ export function mapMangaDexManga(item: any): MangaCard {
   const altTitles: string[] = (attr.altTitles || []).flatMap((x: any) => Object.values(x || {}));
   const title = attr.title?.vi || attr.altTitles?.find((x: any) => x.vi)?.vi || attr.title?.en || Object.values(attr.title || {})[0] || 'Chưa có tiêu đề';
   const filename = rels.find((r: any) => r.type === 'cover_art')?.attributes?.fileName;
-  const coverUrl = filename ? 'https://mangadex.org/covers/' + item.id + '/' + filename + '.256.jpg' : '';
-  const encoded = Buffer.from(coverUrl).toString('base64url');
+  const coverUrl = filename ? 'https://uploads.mangadex.org/covers/' + item.id + '/' + filename + '.256.jpg' : '';
   const chapter = Number.parseFloat(attr.lastChapter || '0') || 0;
   return {
     id: item.id, title, source: 'mangadex',
     alternativeTitle: altTitles.filter(t => t !== title).slice(0, 3).join(' / '),
     author: [...new Set(rels.filter((r: any) => ['author', 'artist'].includes(r.type)).map((r: any) => r.attributes?.name).filter(Boolean))].join(' / ') || 'Chưa rõ',
-    cover: coverUrl ? 'https://services.f-ck.me/v1/image/' + encoded : '/cover-placeholder.svg',
+    cover: coverUrl ? '/api/catalog/image-proxy?url=' + encodeURIComponent(coverUrl) : '/cover-placeholder.svg',
     description: attr.description?.vi || attr.description?.en || Object.values(attr.description || {})[0] || '',
     genres: (attr.tags || []).map((t: any) => t.attributes?.name?.vi || t.attributes?.name?.en).filter(Boolean),
     status: attr.status || 'ongoing', country: attr.originalLanguage || 'ja',

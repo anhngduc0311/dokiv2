@@ -1,5 +1,7 @@
 'use client';
 
+import { coverImage } from '../../lib/cover-image';
+
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
@@ -289,7 +291,7 @@ export function Header({
                         onMouseEnter={() => setHighlightedIndex(i)}
                       >
                         <img
-                          src={m.cover || '/cover-placeholder.svg'}
+                          src={coverImage(m.cover)}
                           alt={m.title}
                           className="suggestion-cover"
                           onError={coverFallback}

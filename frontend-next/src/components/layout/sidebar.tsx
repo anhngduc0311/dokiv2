@@ -1,5 +1,7 @@
 'use client';
 
+import { coverImage } from '../../lib/cover-image';
+
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Manga, Comment, Page } from '../../types';
@@ -97,7 +99,7 @@ export function Sidebar() {
         {store.history.slice(0, 3).map(h => (
           <Link key={h.mangaId} className="history-row" href={`/chuong/${h.chapterId}`}>
             <img
-              src={h.cover || '/cover-placeholder.svg'}
+              src={coverImage(h.cover)}
               alt=""
               loading="lazy"
               decoding="async"
@@ -166,7 +168,7 @@ export function Sidebar() {
                 {i + 1}
               </span>
               <img
-                src={m.cover || '/cover-placeholder.svg'}
+                src={coverImage(m.cover)}
                 alt={m.title}
                 loading="lazy"
                 decoding="async"

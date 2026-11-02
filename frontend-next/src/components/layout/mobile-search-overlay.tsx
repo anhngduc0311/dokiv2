@@ -1,5 +1,7 @@
 'use client';
 
+import { coverImage } from '../../lib/cover-image';
+
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -138,7 +140,7 @@ export function MobileSearchOverlay({ isOpen, onClose }: MobileSearchOverlayProp
                     onClick={() => selectManga(m)}
                   >
                     <img
-                      src={m.cover || '/cover-placeholder.svg'}
+                      src={coverImage(m.cover)}
                       alt={m.title}
                       className="suggestion-cover"
                       onError={coverFallback}

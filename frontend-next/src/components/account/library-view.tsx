@@ -1,5 +1,7 @@
 'use client';
 
+import { coverImage } from '../../lib/cover-image';
+
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useStore } from '../../contexts/store-context';
@@ -81,7 +83,7 @@ export function LibraryView({ isHistory = false }: LibraryViewProps) {
               <article key={item.mangaId} className="library-card glass-panel">
                 <Link className="lib-cover-link" href={`/truyen-tranh/${item.mangaId}`}>
                   <img
-                    src={item.cover || '/cover-placeholder.svg'}
+                    src={coverImage(item.cover)}
                     alt={item.title}
                     referrerPolicy="no-referrer"
                     loading="lazy"

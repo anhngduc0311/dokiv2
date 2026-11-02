@@ -1,5 +1,7 @@
 'use client';
 
+import { coverImage } from '../lib/cover-image';
+
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -361,7 +363,7 @@ function HomeContent({ initialData, initialSpotlights }: HomeProps) {
           <>
             <img
               className="spotlight-backdrop"
-              src={spotlightCovers[currentSpotlight.id] || currentSpotlight.cover}
+              src={coverImage(spotlightCovers[currentSpotlight.id] || currentSpotlight.cover)}
               alt=""
               fetchPriority="high"
               referrerPolicy="no-referrer"
@@ -551,7 +553,7 @@ function HomeContent({ initialData, initialSpotlights }: HomeProps) {
               onTouchStart={() => api.prefetchDetail(m.id)}
             >
               <img
-                src={m.cover || '/cover-placeholder.svg'}
+                src={coverImage(m.cover)}
                 alt={m.title}
                 fetchPriority={i < 2 ? 'high' : 'auto'}
                 loading={i < 2 ? 'eager' : 'lazy'}

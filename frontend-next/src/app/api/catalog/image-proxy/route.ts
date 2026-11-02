@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
+import { mangaDexImageSource } from '../../../../lib/cover-image';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const targetUrl = searchParams.get('url');
+  const requestedUrl = searchParams.get('url');
+  const targetUrl = requestedUrl ? mangaDexImageSource(requestedUrl) || requestedUrl : null;
 
   if (!targetUrl || !targetUrl.startsWith('http')) {
     return NextResponse.json({ message: 'Địa chỉ ảnh không hợp lệ.' }, { status: 400 });

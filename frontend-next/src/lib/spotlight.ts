@@ -1,4 +1,5 @@
 import type { Manga, BannerImage } from '../types';
+import { coverImage, mangaDexImageSource } from './cover-image';
 
 export function hasRomanceGenre(manga: Pick<Manga, 'genres'>): boolean {
   return Array.isArray(manga.genres) && manga.genres.some(genre =>
@@ -20,7 +21,7 @@ export async function loadSpotlightImages(
     while (cursor < candidates.length && Object.keys(images).length < 10 && isCurrent()) {
       const manga = candidates[cursor++];
       if (!manga) break;
-      const urls = [...new Set([originalBannerCover(manga.cover), manga.cover])].filter(
+      const urls = [...new Set([originalBannerCover(manga.cover), coverImage(manga.cover)])].filter(
         url => url && !url.includes('cover-placeholder')
       );
       for (const url of urls) {
@@ -83,15 +84,10 @@ export function rankSpotlightCandidates(
 }
 
 export function originalBannerCover(url: string): string {
-  // Upgrade MangaDex thumbnails through the same image CDN, retaining the real cover filename.
-  const prefix = 'https://services.f-ck.me/v1/image/';
-  if (!url.startsWith(prefix)) return url;
-  try {
-    const encoded = url.slice(prefix.length).replace(/-/g, '+').replace(/_/g, '/');
-    const source = atob(encoded);
-    if (!/^https:\/\/mangadex\.org\/covers\//.test(source)) return url;
-    return prefix + btoa(source.replace(/\.(256|512)\.jpg$/, '')).replace(/\+/g, '-').replace(/\//g, '_');
-  } catch {
-    return url;
+  const source = mangaDexImageSource(url);
+  // Upgrade only known cover thumbnails, retaining their original cover filename.
+  if (source && new URL(source).pathname.startsWith('/covers/')) {
+    return coverImage(source.replace(/\.(256|512)\.jpg$/, ''));
   }
+  return coverImage(url);
 }

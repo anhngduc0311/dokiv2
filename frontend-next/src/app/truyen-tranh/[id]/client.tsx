@@ -1,5 +1,7 @@
 'use client';
 
+import { coverImage } from '../../../lib/cover-image';
+
 import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -499,7 +501,7 @@ function MangaDetailContent({ initialManga, initialChapters, initialChapterError
             <section className="detail-hero glass-panel">
               <div
                 className="hero-backdrop"
-                style={{ backgroundImage: `url(${manga.cover})` }}
+                style={{ backgroundImage: `url(${coverImage(manga.cover)})` }}
               ></div>
               <div className="hero-overlay-content">
                 <div className="detail-cover">
@@ -507,7 +509,7 @@ function MangaDetailContent({ initialManga, initialChapters, initialChapterError
                     width={256}
                     height={360}
                     className="loaded"
-                    src={manga.cover || '/cover-placeholder.svg'}
+                    src={coverImage(manga.cover)}
                     alt={manga.title}
                     fetchPriority="high"
                     decoding="async"

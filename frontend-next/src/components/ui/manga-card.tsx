@@ -7,6 +7,7 @@ import { Manga } from '../../types';
 import { api } from '../../lib/api';
 import { compact, ago } from '../../lib/utils';
 import { Icon } from './icon';
+import { coverImage } from '../../lib/cover-image';
 
 export interface MangaCardProps {
   manga: Manga;
@@ -14,6 +15,7 @@ export interface MangaCardProps {
 }
 
 export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
+  const cover = coverImage(manga.cover);
   const [coverFailed, setCoverFailed] = useState(false);
   const prefetchedRef = useRef(false);
 
@@ -63,8 +65,8 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
         aria-label={manga.title}
       >
         <Image
-          src={coverFailed ? '/cover-placeholder.svg' : manga.cover || '/cover-placeholder.svg'}
-          unoptimized={manga.cover?.startsWith('http') && !manga.cover.startsWith('https://services.f-ck.me/v1/image/')}
+          src={coverFailed ? '/cover-placeholder.svg' : cover}
+          unoptimized={cover.startsWith('http') && !cover.startsWith('https://services.f-ck.me/v1/image/')}
           alt={manga.title}
           width={256}
           height={360}
