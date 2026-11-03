@@ -1,0 +1,22 @@
+[Unit]
+Description=DokiTruyen private PostgreSQL HTTPS gateway
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=dokitruyen-db
+Group=dokitruyen-db
+EnvironmentFile=/etc/dokitruyen-database.env
+ExecStart=/usr/bin/node /opt/dokitruyen-database/database-http.cjs
+Restart=on-failure
+RestartSec=3
+MemoryMax=128M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

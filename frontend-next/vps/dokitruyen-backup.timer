@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily DokiTruyen PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 19:00:00 UTC
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

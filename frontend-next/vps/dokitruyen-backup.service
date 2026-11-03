@@ -1,0 +1,9 @@
+[Unit]
+Description=DokiTruyen daily PostgreSQL snapshot
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/dokitruyen-backup-database
+UMask=0077
+Nice=10

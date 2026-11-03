@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // Bundle the pure-JavaScript driver; Windows builds cannot create its external junction.
+  transpilePackages: ['pg'],
   images: {
     // cPanel's account quota is smaller than the server-wide free disk space.
     maximumDiskCacheSize: 256 * 1024 * 1024,
