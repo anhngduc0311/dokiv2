@@ -51,10 +51,22 @@ assert.equal(rows.length, 3, 'Duplicate source references are removed');
 assert.ok(rows.some(row => row.path === '/tac-gia/' + encodeURIComponent('Tên & Họ')));
 await sitemap.sitemapRows();
 assert.equal(queries, 3, 'Shard requests reuse the snapshot');
+let largeQueries = 0;
+const largeSitemap = load('../frontend-next/src/lib/sitemap.ts', {
+  './seo': seo,
+  './db': { sql: async () => {
+    largeQueries++;
+    if (largeQueries === 1) return [];
+    if (largeQueries === 2) return [{ name: 'CatalogSourceRefs' }];
+    return Array.from({ length: 185000 }, (_, i) => ({ path: `/chuong/${i}`, modified: null }));
+  } },
+});
+assert.equal((await largeSitemap.sitemapRows()).length, 185000, 'Large imported catalogs do not exceed the function argument limit');
 const xml = sitemap.urlset([{ path: '/?a=1&b=2', modified: '2026-10-20' }, { path: '/invalid-date', modified: 'bad' }]);
 assert.ok(xml.includes('?a=1&amp;b=2'));
 assert.ok(xml.includes('<lastmod>2026-10-20T00:00:00.000Z</lastmod>'));
 assert.ok(!xml.includes('Invalid Date'));
+assert.ok(xml.includes('<?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>'));
 assert.equal(sitemap.xmlEscape('<&"\''), '&lt;&amp;&quot;&apos;');
 const shardRows = Array.from({ length: 5001 }, (_, i) => ({ path: `/chuong/${i}`, modified: null }));
 const dependencies = { '@/lib/sitemap': { ...sitemap, sitemapRows: async () => shardRows }, '@/lib/seo': seo };
@@ -62,6 +74,17 @@ const index = load('../frontend-next/src/app/sitemap.xml/route.ts', dependencies
 const indexXml = await (await index.GET(new Request('https://attacker.invalid', { headers: { host: 'attacker.invalid' } }))).text();
 assert.ok(!indexXml.includes('attacker.invalid'));
 assert.equal((indexXml.match(/<sitemap>/g) || []).length, 3);
+const indexWithDates = sitemap.sitemapIndex([
+  { path: '/truyen-tranh/a', modified: '2026-10-20' },
+  { path: '/chuong/b', modified: '2026-10-21' },
+  { path: '/tac-gia/c', modified: 'invalid' },
+]);
+assert.equal((indexWithDates.match(/<lastmod>/g) || []).length, 1);
+assert.ok(indexWithDates.includes('<lastmod>2026-10-21T00:00:00.000Z</lastmod>'));
+assert.ok(!indexXml.includes('<lastmod>'), 'Do not invent modification dates for undated shards');
+assert.equal((sitemap.sitemapIndex([]).match(/<sitemap>/g) || []).length, 1);
+const newIndex = load('../frontend-next/src/app/sitemap_index.xml/route.ts', { '../sitemap.xml/route': index });
+assert.equal(await (await newIndex.GET()).text(), indexXml);
 const shards = load('../frontend-next/src/app/sitemaps/[file]/route.ts', dependencies);
 const getShard = file => shards.GET(new Request('https://example.test'), { params: Promise.resolve({ file }) });
 assert.equal(((await (await getShard('0.xml')).text()).match(/<url>/g) || []).length, 5000);
@@ -77,7 +100,7 @@ const robots = load('../frontend-next/src/app/robots.ts', { '@/lib/seo': seo }).
 assert.equal(robots.rules.userAgent, '*');
 assert.ok(robots.rules.disallow.includes('/admin'));
 assert.ok(robots.rules.allow.includes('/api/catalog/image-proxy'));
-assert.equal(robots.sitemap, seo.SITE_URL + '/sitemap.xml');
+assert.equal(robots.sitemap, seo.SITE_URL + '/sitemap_index.xml');
 // Render the real interactive components on the server with isolated fixtures.
 // No browser, live database or source API is involved in these checks.
 const React = require('react');
@@ -92,6 +115,7 @@ const common = {
   react: React, 'react/jsx-runtime': require('react/jsx-runtime'), 'next/link': Link,
   'next/navigation': { useParams: () => ({ id: manga.id }), usePathname: () => '/chuong/chapter-id', useRouter: () => ({}), useSearchParams: () => new URLSearchParams() },
   '../../../lib/api': { api: { query: () => '' } }, '../../../lib/utils': utils,
+  '../../../lib/cover-image': load('../frontend-next/src/lib/cover-image.ts', {}),
   '../../../contexts/store-context': { useStore: () => ({ settings: { language: 'vi', width: 900, dataSaver: false }, history: [], follows: [], isFollowed: () => false }) },
   '../../../components/ui/icon': { Icon: () => null },
   '../../../components/ui/pagination': { Pagination: () => null },

@@ -4,6 +4,7 @@ import { absoluteUrl } from './seo';
 export const SITEMAP_SIZE = 5000;
 export const xmlEscape = (value: string) => value.replace(/[<>&"']/g, character => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[character]!);
 export const staticPaths = ['/', '/tim-truyen-nang-cao', '/tac-gia'];
+const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet type="text/xsl" href="/sitemap.xsl"?>';
 
 type SitemapRow = { path: string; modified: string | null };
 let snapshot: { expires: number; rows: SitemapRow[] } | undefined;
@@ -43,7 +44,8 @@ async function readSitemapRows(): Promise<SitemapRow[]> {
       FROM "CatalogSourceRefs" r JOIN "Mangas" m ON m."Id" = r."MangaId"
       WHERE r."Kind" = 'chapter' AND m."IsHidden" = false AND m."IsDraft" = false;
     `;
-    rows.push(...refs);
+    // Large imported catalogs exceed V8's function argument limit with push(...refs).
+    for (const ref of refs) rows.push(ref);
   }
   return [...new Map(rows.map(row => {
     const path = String(row.path);
@@ -53,11 +55,25 @@ async function readSitemapRows(): Promise<SitemapRow[]> {
 }
 
 export function urlset(rows: { path: string; modified?: string | null }[]) {
-  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${rows.map(row => {
+  return `${xmlHeader}<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${rows.map(row => {
     const date = row.modified ? new Date(row.modified) : null;
     const lastmod = date && Number.isFinite(date.getTime()) ? `<lastmod>${date.toISOString()}</lastmod>` : '';
     return `<url><loc>${xmlEscape(absoluteUrl(row.path))}</loc>${lastmod}</url>`;
   }).join('')}</urlset>`;
+}
+
+export function sitemapIndex(rows: SitemapRow[]) {
+  const entries = [`<sitemap><loc>${xmlEscape(absoluteUrl('/sitemap-static.xml'))}</loc></sitemap>`];
+  for (let offset = 0; offset < rows.length; offset += SITEMAP_SIZE) {
+    const batch = rows.slice(offset, offset + SITEMAP_SIZE);
+    const latest = batch.reduce((timestamp, row) => {
+      const value = row.modified ? new Date(row.modified).getTime() : NaN;
+      return Number.isFinite(value) ? Math.max(timestamp, value) : timestamp;
+    }, -Infinity);
+    const lastmod = Number.isFinite(latest) ? `<lastmod>${new Date(latest).toISOString()}</lastmod>` : '';
+    entries.push(`<sitemap><loc>${xmlEscape(absoluteUrl(`/sitemaps/${offset / SITEMAP_SIZE}.xml`))}</loc>${lastmod}</sitemap>`);
+  }
+  return `${xmlHeader}<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries.join('')}</sitemapindex>`;
 }
 
 export function xmlResponse(xml: string) {

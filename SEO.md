@@ -12,17 +12,21 @@ Breadcrumb, tiêu đề chương và liên kết trước/sau được render tr
 
 ## Sitemap và robots
 
-- `/sitemap.xml`: sitemap index, cập nhật tự động.
+- `/sitemap_index.xml`: sitemap index chính, cập nhật tự động, có bảng hiển thị tương tự sitemap mẫu NetTruyen.
+- `/sitemap.xml`: tiếp tục phục vụ cùng nội dung index để giữ các liên kết đã gửi trước đây.
+- `/sitemap.xsl`: giao diện XML tiếng Việt cho index và các sitemap con trên trình duyệt hỗ trợ XSLT.
 - `/sitemap-static.xml`: các trang công khai cố định.
 - `/sitemaps/0.xml`, `/sitemaps/1.xml`, ...: tối đa 5.000 URL/tệp.
-- `/api/sitemap.xml`: chuyển hướng về sitemap index.
+- `/api/sitemap.xml`: chuyển hướng về `/sitemap_index.xml`.
 - `/robots.txt`: quy tắc chung cho mọi bot, cho phép proxy ảnh, chặn API và khu vực riêng.
 
 Sitemap lấy các truyện không ẩn/nháp, chương không khóa đã đến lịch xuất bản, tác giả, và tham chiếu chương nguồn ngoài đã được lưu thuộc truyện công khai. Không crawl toàn bộ nguồn ngoài trong request sitemap. Những truyện/chương nguồn ngoài chưa được khám phá/lưu sẽ được bổ sung khi catalog lưu dữ liệu/tham chiếu. Với dữ liệu nguồn ngoài, lịch xuất bản chỉ có thể xác minh theo dữ liệu nguồn cung cấp; tham chiếu không có timestamp nên không sinh `lastmod` giả.
 
 Snapshot chia sẻ trong tiến trình có TTL 5 phút và gộp các request đồng thời. CDN có thể cache XML 30 phút. Query chỉ đọc, không khởi tạo schema. Khi DB lỗi, sitemap động trả 503, `Retry-After: 300`, `Cache-Control: no-store`; không phát sitemap rỗng giả. `lastmod` dùng timestamp thật nếu có. Mỗi snapshot hiện đọc danh sách URL vào bộ nhớ; catalog rất lớn nên chuyển sang truy vấn phân trang/keyset và sitemap snapshot dùng chung giữa các instance.
 
-Canonical không lấy Host từ request. Đặt `NEXT_PUBLIC_SITE_URL=https://dokitruyen.com` trước khi build/deploy, mặc định cũng là domain này. Khi đổi domain cần build lại. Gửi `/sitemap.xml` trong Google Search Console sau triển khai.
+Index có `lastmod` theo timestamp mới nhất hợp lệ trong từng tệp con; không tạo ngày giả cho trang tĩnh hoặc URL thiếu timestamp. `robots.txt` khai báo `/sitemap_index.xml`.
+
+Canonical không lấy Host từ request. Đặt `NEXT_PUBLIC_SITE_URL=https://dokitruyen.com` trước khi build/deploy, mặc định cũng là domain này. Khi đổi domain cần build lại. Gửi `https://dokitruyen.com/sitemap_index.xml` trong Google Search Console sau triển khai.
 
 ## Core Web Vitals
 
