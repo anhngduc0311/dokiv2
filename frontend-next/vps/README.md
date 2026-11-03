@@ -39,12 +39,31 @@ Run `py tests/vps-relay.py` from the repository root to verify authorization, so
 
 Private deployment backups and verification reports are under ignored `state/vps-relay/`. A backup of the previous cPanel env is retained there. Rollback consists of restoring that env and restarting the cPanel Node application, but the old Cloudflare relay remains subject to its daily request quota.
 
-## PostgreSQL migration preparation (2026-11-03)
+## PostgreSQL production migration (2026-11-03)
 
 The boot disk is now 20 GB and the guest ext4 partition has been expanded. PostgreSQL 18 is installed with a dedicated `dokitruyen_app` role and database, 64 MiB shared buffers, 40 server connections and SCRAM authentication. The database role is not a superuser and cannot create databases or roles. Its connection limit is 30.
 
 `setup-database.py` provisions the empty target, TLS and a certificate renewal hook. `transfer-database.py` reads credentials from a root-private JSON file, dumps Neon consistently, restores only into an empty target, and verifies the row count and a content checksum of every public table. Source writers must be stopped for the final snapshot and verification. Private snapshots are under `/var/backups/dokitruyen`; do not remove the Neon source before checking the live site.
 
-Two transports are available: `DATABASE_DRIVER=postgres` uses a four-connection native pool; `DATABASE_DRIVER=postgres-http` uses a private HTTPS gateway when shared hosting blocks outbound TCP 5432. The HTTPS gateway configuration is prepared but must not be exposed until its access path is explicitly approved. Its exact Nginx location permits only the hosting IP `160.30.20.248`, requires POST, disables cache and retries, and the loopback-only Node service separately requires a random bearer token. The gateway connects to PostgreSQL as the application role, verifies the TLS certificate, keeps parameters separate from SQL, and executes each transaction on one connection. Never log authorization headers, SQL parameters or query results.
+Two transports are available: `DATABASE_DRIVER=postgres` uses a four-connection native pool; `DATABASE_DRIVER=postgres-http` uses a private HTTPS gateway when shared hosting blocks outbound TCP 5432. The user approved the HTTPS access path, and the gateway is now active on the existing HTTPS hostname. Its exact Nginx location permits only the hosting IP `160.30.20.248`, requires POST, disables cache and retries, and the loopback-only Node service separately requires a random bearer token. The gateway connects to PostgreSQL as the application role, verifies the TLS certificate, keeps parameters separate from SQL, and executes each transaction on one connection. Never log authorization headers, SQL parameters or query results.
 
 The standalone application includes the pure JavaScript PostgreSQL driver. Environment values and credentials are excluded from deployment archives. Preserve the OAuth and MangaDex relay settings when replacing database variables. Restart the cPanel application and restore its worker cron after the cutover. Confirm `/api/health`, catalogue and chapter endpoints, then check PostgreSQL sessions before considering the migration complete. Keep the old environment and archives for rollback; once writes reach the new database, a rollback must account for those writes rather than simply switching back to stale Neon data.
+
+
+The production cutover completed using the user-approved snapshot from **2026-11-03 12:13 Asia/Bangkok** (05:13 UTC). Neon rejected the final dump because its quota was exhausted. `restore-approved-snapshot.py` restored the snapshot into an empty target and verified every table by comparing the count and the sum of SHA-256 hashes of COPY rows against the archive: **18 tables, 741,981 rows**. This verifies the restored snapshot, not changes made after its creation. Neon is retained unchanged for later reconciliation. Do not overwrite new VPS writes when comparing the two databases.
+
+Production uses `DATABASE_DRIVER=postgres-http`; the app and original one-minute worker cron are running. The hosting preflight verified TLS, application-role authentication, a parameterized atomic transaction, and rejection of an invalid bearer token. `/api/health` reports a connected database. The previously failing chapter page renders 31 image slots and its visible images load. PostgreSQL shows the gateway connection using TLS 1.3.
+
+The private deployment environment is also saved in ignored `frontend-next/.env.production.local`. `scripts/package-cpanel.mjs` prefers that file (or an explicit `CPANEL_ENV_FILE`) when creating a cPanel archive, and excludes other `.env.*` files from its recursive copy. Local development `.env` still has the previous Neon configuration: the production gateway intentionally accepts only the hosting IP, so a developer PC cannot use it directly.
+
+The root-only `dokitruyen-backup.service` runs `backup-database.sh`; `dokitruyen-backup.timer` schedules it daily around **02:00 Asia/Bangkok** (19:00 UTC, plus up to 10 minutes of jitter). Snapshots are mode 0600 under `/var/backups/dokitruyen`, and their archive tables of contents are checked before reporting success. Backups remain on this VPS: copy them off the machine for protection against VM or disk loss, and monitor disk use because automatic deletion is not configured. The original Neon snapshot is preserved separately.
+
+Useful checks:
+
+```sh
+systemctl is-active postgresql dokitruyen-database nginx
+systemctl list-timers dokitruyen-backup.timer
+journalctl -u dokitruyen-database --since '10 min ago' --no-pager
+systemctl start dokitruyen-backup.service
+ls -lh /var/backups/dokitruyen
+```

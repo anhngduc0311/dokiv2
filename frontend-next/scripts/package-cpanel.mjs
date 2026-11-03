@@ -10,7 +10,7 @@ if (!fs.existsSync('.next/linux-runtime/node_modules/@img/sharp-linux-x64')) {
 }
 function add(dir, prefix) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (/win32/.test(entry.name) || entry.name === '.env') continue;
+    if (/win32/.test(entry.name) || entry.name === '.env' || entry.name.startsWith('.env.')) continue;
     const file = path.join(dir, entry.name);
     if (fs.statSync(file).isDirectory()) add(file, prefix + entry.name + '/');
     else zip.file(prefix + entry.name, fs.readFileSync(file), { unixPermissions: 0o100644 });
@@ -18,7 +18,8 @@ function add(dir, prefix) {
 }
 add('.next/standalone', release + '/');
 add('.next/linux-runtime/node_modules/@img', release + '/node_modules/@img/');
-zip.file(release + '/.env', fs.readFileSync('.env'), { unixPermissions: 0o100600 });
+const envFile = process.env.CPANEL_ENV_FILE || (fs.existsSync('.env.production.local') ? '.env.production.local' : '.env');
+zip.file(release + '/.env', fs.readFileSync(envFile), { unixPermissions: 0o100600 });
 zip.file('app.cjs', `process.env.NODE_ENV = 'production';\nprocess.env.HOSTNAME = '127.0.0.1';\nrequire('./${release}/server.js');\n`, { unixPermissions: 0o100644 });
 const output = '.next/dokitruyen-postgres.zip';
 await new Promise((resolve, reject) => {
