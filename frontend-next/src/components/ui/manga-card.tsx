@@ -21,7 +21,7 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
 
   const recentChapters = [...(manga.chapters || [])]
     .sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0) || b.number - a.number)
-    .slice(0, 3).map(chapter => ({
+    .slice(0, 1).map(chapter => ({
     ...chapter,
     relativeTime: Number.isFinite(Date.parse(chapter.publishedAt)) ? ago(chapter.publishedAt) : 'Đang cập nhật'
   }));
