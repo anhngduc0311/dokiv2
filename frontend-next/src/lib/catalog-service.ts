@@ -258,9 +258,9 @@ async function federatedCatalog(filters: CatalogFilters, remoteGenre: string | u
     })(),
     ggEnabled ? ggTotal(ggFilters) : Promise.resolve(0)
   ]);
-  if (countResults.every(r => r.status === 'rejected')) throw (countResults[0] as PromiseRejectedResult).reason;
-  if (source === 'truyengg' && countResults[1].status === 'rejected') throw countResults[1].reason;
-  if (source === 'mangadex' && countResults[0].status === 'rejected') throw countResults[0].reason;
+  if (countResults.every(r => r.status === 'rejected')) return { items: [], total: 0 };
+  if (source === 'truyengg' && countResults[1].status === 'rejected') return { items: [], total: 0 };
+  if (source === 'mangadex' && countResults[0].status === 'rejected') return { items: [], total: 0 };
   const counts = countResults.map(r => r.status === 'fulfilled' ? r.value : 0) as [number, number];
   const window = sourceWindow(counts, offset, size);
   const [md, gg] = await Promise.all([
@@ -300,7 +300,12 @@ export async function getMangaDetail(id: string): Promise<MangaCard | null> {
   } catch {
     // Source stories can still be read while the local database is unavailable.
   }
-  const gg = await getGgDetail(id);
+  let gg: Awaited<ReturnType<typeof getGgDetail>> = null;
+  try {
+    gg = await getGgDetail(id);
+  } catch {
+    // A TruyenGG outage must not turn the whole story page into an SSR 500.
+  }
   if (gg) {
     await rememberManga(gg.manga);
     await cacheSet(cacheKey, gg.manga, 300);
@@ -359,7 +364,7 @@ async function matchingGgSource(manga: MangaCard) {
 
 async function canonicalChapterFeed(id: string, language: string): Promise<ChapterCard[]> {
   if (language !== 'vi') return mangaDexChapterFeed(id, language);
-  const cached = await cacheGet<ChapterCard[]>('catalog:merged-chapters:v2:' + id);
+  const cached = await cacheGet<ChapterCard[]>('catalog:merged-chapters:v4:' + id);
   if (cached) return cached;
   const pending = chapterSyncRequests.get(id); if (pending) return pending;
   const request = (async () => {
@@ -388,7 +393,7 @@ async function canonicalChapterFeed(id: string, language: string): Promise<Chapt
         aliases.push(...mapped);
       }
       const merged = mergeChapterSources(primary, aliases);
-      await cacheSet('catalog:merged-chapters:v2:' + id, merged, 300, 86400);
+      await cacheSet('catalog:merged-chapters:v4:' + id, merged, 300, 86400);
       return merged;
     } catch {
       // A supplemental source outage must not hide readable MangaDex chapters.
@@ -406,6 +411,17 @@ export async function getMangaChapters(
   ascending: boolean = false,
   language: string = 'vi'
 ): Promise<{ items: ChapterCard[]; total: number; page: number; pageSize: number }> {
+  const linkedSource = language === 'vi' ? await findChapterSourceLink(mangaId) : null;
+  if (linkedSource) {
+    const detail = await getGgDetail(linkedSource).catch(() => null);
+    if (detail) {
+      const primary = await mangaDexChapterFeed(mangaId, language);
+      const aliases = sourceChapterAliases(mangaId, detail.chapters, ggId);
+      const merged = mergeChapterSources(primary, aliases);
+      const items = ascending ? merged : [...merged].reverse();
+      return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
+    }
+  }
   const gg = language === 'vi' ? await getGgChapters(mangaId, ascending) : null;
   if (gg) return gg;
   await ensureDbInitialized();

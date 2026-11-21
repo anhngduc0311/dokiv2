@@ -35,7 +35,13 @@ async function ggHtml(path: string, search?: string): Promise<string> {
     if (!res.ok && search === undefined) {
       const fallback = new URL(translatedOrigin + path);
       for (const [key, value] of new URLSearchParams(translatedQuery)) fallback.searchParams.set(key, value);
-      res = await fetch(fallback, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+      for (let attempt = 0; attempt < 3 && !res.ok; attempt++) {
+        try {
+          res = await fetch(fallback, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+        } catch {
+          if (attempt === 2) throw new TruyenGgUnavailableError();
+        }
+      }
     }
     if (!res.ok) throw new TruyenGgUnavailableError();
     const html = await res.text();

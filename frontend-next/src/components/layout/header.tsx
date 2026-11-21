@@ -350,6 +350,9 @@ export function Header({
                     <button type="button" className="btn-full-search" onClick={search}>
                       Tìm kiếm nâng cao
                     </button>
+                    <a className="btn-full-search" href={`https://truyenggvn.com/tim-kiem.html?q=${encodeURIComponent(query.trim())}`} target="_blank" rel="noreferrer">
+                      Tìm trên TruyenGG
+                    </a>
                   </div>
                 )
               )}
