@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { searchCatalog } from '@/lib/catalog-service';
+import { TruyenGgUnavailableError } from '@/lib/truyengg-catalog';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : 1;
   const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : 24;
 
-  const data = await searchCatalog({
+  const filters = {
     source,
     q,
     author,
@@ -30,7 +31,13 @@ export async function GET(req: Request) {
     year,
     page,
     pageSize
-  });
-
-  return NextResponse.json(data);
+  };
+  try {
+    return NextResponse.json(await searchCatalog(filters));
+  } catch (error) {
+    if (source === 'truyengg' && error instanceof TruyenGgUnavailableError) {
+      return NextResponse.json({ message: error.message }, { status: 503 });
+    }
+    throw error;
+  }
 }

@@ -698,6 +698,7 @@ function MangaDetailContent({ initialManga, initialChapters, initialChapterError
                       <Link
                         key={c.id}
                         href={`/chuong/${c.id}`}
+                        prefetch={false}
                         className={`chapter-row ${isChapterRead(c.id) ? 'is-read' : ''}`}
                       >
                         <div className="chapter-main-info">

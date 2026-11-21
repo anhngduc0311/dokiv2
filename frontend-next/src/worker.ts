@@ -1,5 +1,6 @@
 import { sql } from './lib/db-client';
 import { cacheRead } from './lib/cache';
+import { closeRedisCache } from './lib/redis-cache';
 import { acquireWorker, releaseWorker, enqueueJob, claimJob, finishJob, cleanupCacheAndJobs } from './lib/job-queue';
 import { catalogPageKey, searchCatalog } from './lib/catalog-service';
 import type { CatalogFilters } from './lib/mangadex-catalog';
@@ -40,4 +41,6 @@ async function main() {
     console.log('Queue:', JSON.stringify(rows));
   } finally { await releaseWorker(token); }
 }
-main().catch(() => { console.error('Worker could not reach PostgreSQL.'); process.exitCode = 1; });
+main()
+  .catch(() => { console.error('Worker could not reach PostgreSQL.'); process.exitCode = 1; })
+  .finally(closeRedisCache);

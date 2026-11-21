@@ -6,23 +6,40 @@ import type { CatalogFilters } from './mangadex-catalog';
 import type { MangaCard, ReaderData, ChapterCard } from './catalog-service';
 import type { GgGrid, GgReference } from './truyengg-parser';
 
+export class TruyenGgUnavailableError extends Error {
+  constructor() {
+    super('DokiTruyen hiện chưa lấy được danh sách truyện từ TruyenGG.');
+  }
+}
+
 const pending = new Map<string, Promise<string>>();
 const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36', Referer: GG_ORIGIN + '/' };
+const relay = process.env.TRUYENGG_PROXY_URL?.replace(/\/$/, '');
+const translatedOrigin = 'https://truyenggvn-com.translate.goog';
+const translatedQuery = '_x_tr_sl=vi&_x_tr_tl=en&_x_tr_hl=en';
 async function ggHtml(path: string, search?: string): Promise<string> {
   const key = 'truyengg:html:next:v1:' + createHash('sha256').update(path + ':' + (search || '')).digest('hex');
   const cached = await cacheGet<string>(key); if (cached) return cached;
   const inFlight = pending.get(key); if (inFlight) return inFlight;
   const request = (async () => {
-    const res = await fetch(GG_ORIGIN + path, {
+    const target = relay
+      ? (search === undefined ? relay + '/fetch?path=' + encodeURIComponent(path) : relay + '/search?q=' + encodeURIComponent(search))
+      : GG_ORIGIN + path;
+    let res = await fetch(target, {
       method: search === undefined ? 'GET' : 'POST',
       headers: search === undefined ? headers : { ...headers, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
       body: search === undefined ? undefined : new URLSearchParams({ search }),
       // cacheGet/cacheSet above already persist this response in PostgreSQL.
       signal: AbortSignal.timeout(10000), cache: 'no-store'
     });
-    if (!res.ok) throw new Error('Nguồn TruyenGG tạm thời không phản hồi.');
+    if (!res.ok && search === undefined) {
+      const fallback = new URL(translatedOrigin + path);
+      for (const [key, value] of new URLSearchParams(translatedQuery)) fallback.searchParams.set(key, value);
+      res = await fetch(fallback, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+    }
+    if (!res.ok) throw new TruyenGgUnavailableError();
     const html = await res.text();
-    if (!html || /<title>[^<]*(?:Attention Required|Just a moment)/i.test(html)) throw new Error('TruyenGG chưa trả về nội dung truyện.');
+    if (!html || /<title>[^<]*(?:Attention Required|Just a moment)/i.test(html)) throw new TruyenGgUnavailableError();
     await cacheSet(key, html, 300); return html;
   })();
   pending.set(key, request);
@@ -96,11 +113,11 @@ export async function ggTotal(filters: GgFilters): Promise<number> {
   if (filters.q) return (await suggestions(filters)).length;
   const parts = splitCountries(filters);
   if (parts.length > 1) return (await Promise.all(parts.map(ggTotal))).reduce((a, b) => a + b, 0);
-  const key = 'truyengg:count:v2:' + JSON.stringify(filters);
+  const key = 'truyengg:count:v3:' + JSON.stringify(filters);
   const cached = await cacheGet<number>(key); if (cached !== null) return cached;
   const first = await gridPage(filters, 1);
   if (!first.items.length) return 0;
-  const last = first.lastPage === 1 ? first : await gridPage(filters, first.lastPage);
+  const last = first.lastPage === 1 ? first : await gridPage(filters, first.lastPage).catch(() => first);
   const total = (first.lastPage - 1) * first.items.length + last.items.length;
   await cacheSet(key, total, 300); return total;
 }

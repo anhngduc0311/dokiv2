@@ -45,6 +45,16 @@ try {
   assert.equal(response.status, 200);
   assert.equal(fetched, 'https://relay.test/private/image?url=' + encodeURIComponent(source + '.256.jpg'));
   assert.equal(await response.text(), 'test-image');
+
+  delete process.env.MANGADEX_PROXY_URL;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, source + '.256.jpg');
+    assert.equal(options.headers['User-Agent'], 'DokiTruyen/1.0 (+https://dokitruyen.com)');
+    return new Response('test-image', { headers: { 'Content-Type': 'image/jpeg' } });
+  };
+  const direct = await route.GET(new Request('https://site.test' + expected));
+  assert.equal(direct.status, 200);
+  assert.equal(await direct.text(), 'test-image');
 } finally {
   globalThis.fetch = fetchBefore;
   if (proxyBefore === undefined) delete process.env.MANGADEX_PROXY_URL;

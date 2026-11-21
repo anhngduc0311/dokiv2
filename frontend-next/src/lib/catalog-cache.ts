@@ -1,10 +1,14 @@
 import { cacheRead, cacheSet } from './cache';
 import { enqueueJob } from './job-queue';
+import { readRedisCache, writeRedisCache } from './redis-cache';
 
+const FRESH_SECONDS = 300;
 const loading = new Map<string, Promise<unknown>>();
 const queued = new Map<string, number>();
 export async function cachedCatalog<T>(key: string, payload: unknown, load: () => Promise<T>, force = false): Promise<T> {
   if (!force) {
+    const shared = await readRedisCache(key);
+    if (shared !== null && shared !== undefined) return JSON.parse(shared) as T;
     const hit = await cacheRead<T>(key);
     if (hit) {
       if (!hit.fresh && (queued.get(key) || 0) < Date.now()) {
@@ -23,7 +27,8 @@ export async function cachedCatalog<T>(key: string, payload: unknown, load: () =
   const request = (async () => {
     const result = await load();
     // Retain yesterday's catalog while a worker refreshes expired data.
-    await cacheSet(key, result, 300, 86400, force);
+    await cacheSet(key, result, FRESH_SECONDS, 86400, force);
+    await writeRedisCache(key, result, FRESH_SECONDS);
     queued.delete(key);
     return result;
   })();

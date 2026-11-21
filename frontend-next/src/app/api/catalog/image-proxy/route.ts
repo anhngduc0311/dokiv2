@@ -4,7 +4,8 @@ import { mangaDexImageSource } from '../../../../lib/cover-image';
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const requestedUrl = searchParams.get('url');
-  const targetUrl = requestedUrl ? mangaDexImageSource(requestedUrl) || requestedUrl : null;
+  const mangaDexUrl = requestedUrl ? mangaDexImageSource(requestedUrl) : null;
+  const targetUrl = mangaDexUrl || requestedUrl;
 
   if (!targetUrl || !targetUrl.startsWith('http')) {
     return NextResponse.json({ message: 'Địa chỉ ảnh không hợp lệ.' }, { status: 400 });
@@ -28,13 +29,14 @@ export async function GET(req: Request) {
     }
 
     const proxy = process.env.MANGADEX_PROXY_URL?.trim().replace(/\/$/, '');
-    const relayImage = proxy && uri.protocol === 'https:' && !uri.port && !uri.username && !uri.password
-      && (uri.hostname === 'uploads.mangadex.org' || uri.hostname === 'mangadex.org' || uri.hostname.endsWith('.mangadex.network'));
+    const relayImage = proxy && mangaDexUrl;
     const res = await fetch(relayImage ? proxy + '/image?url=' + encodeURIComponent(targetUrl) : targetUrl, {
       cache: 'no-store',
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        // The MangaDex image host sends a browser challenge for browser user agents.
+        'User-Agent': mangaDexUrl
+          ? 'DokiTruyen/1.0 (+https://dokitruyen.com)'
+          : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
         Referer: referrer
       }
     });

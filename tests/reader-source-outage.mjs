@@ -17,7 +17,9 @@ const api=load('lib/catalog-service.ts',{
  './truyengg-catalog':{getGgReader:async()=>null},'./source-references':{findGgReference:async()=>null},
  './catalog-cache':{},'./catalog-pagination':{},'./chapter-source-sync':{},'./chapter-source-links':{},'./truyengg-parser':{}
 });
-assert.equal((await api.getChapterReader('chapter')).pages.length,1);assert.equal(requests,2);
+const concurrent = await Promise.all(Array.from({ length: 5 }, () => api.getChapterReader('chapter')));
+for (const reader of concurrent) assert.equal(reader.pages.length, 1);
+assert.equal(requests, 2, 'Concurrent readers share one metadata request and one image-server request');
 assert.equal((await api.getChapterReader('chapter')).pages.length,1);assert.equal(requests,2,'Repeated reads must reuse source metadata and a still-valid image server');
 locked=true;assert.equal(await api.getChapterReader('chapter'),null);assert.equal(requests,2,'Cached responses must not bypass chapter publication restrictions');locked=false;
 now+=61000;imageFailure=true;await assert.rejects(api.getChapterReader('chapter'),/image server unavailable/,'Expired image server addresses must never be served as stale');

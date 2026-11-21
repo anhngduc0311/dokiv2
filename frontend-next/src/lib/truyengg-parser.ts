@@ -17,7 +17,8 @@ export function ggId(key: string): string {
 export function ggPath(value: string, kind: 'manga' | 'chapter'): string | null {
   try {
     const url = new URL(value, GG_ORIGIN);
-    if (url.origin !== GG_ORIGIN || url.username || url.password || url.search || url.hash) return null;
+    const translated = url.hostname === 'truyenggvn-com.translate.goog';
+    if ((url.origin !== GG_ORIGIN && !translated) || url.username || url.password || (url.search && !translated) || url.hash) return null;
     const path = url.pathname.replace(/\/$/, '');
     if (!/^\/truyen-tranh\/[a-z0-9.-]+$/i.test(path)) return null;
     if (kind === 'chapter' ? !/-chap-[\d.-]+\.html$/.test(path) : /-chap-[\d.-]+\.html$/.test(path)) return null;
@@ -35,7 +36,8 @@ export function ggImage(value: string): string {
 }
 export function ggProxy(value: string): string {
   const url = ggImage(value);
-  return url ? '/api/catalog/image-proxy?url=' + encodeURIComponent(url) : '/cover-placeholder.svg';
+  if (!url) return '/cover-placeholder.svg';
+  return '/api/catalog/image-proxy?url=' + encodeURIComponent(url);
 }
 export function ggTime(text: string, now = Date.now()): string {
   const relative = text.toLowerCase().match(/(\d+)\s*(giây|phút|giờ|ngày|tháng|năm)/);

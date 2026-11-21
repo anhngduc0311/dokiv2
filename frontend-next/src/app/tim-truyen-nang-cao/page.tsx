@@ -1,5 +1,6 @@
 import SearchClient from './client';
 import { searchCatalog } from '@/lib/catalog-service';
+import { TruyenGgUnavailableError } from '@/lib/truyengg-catalog';
 import { toPage } from '@/lib/seo-data';
 import { pageMetadata, firstParam, pageNumber, collectionSchema, type SearchParams } from '@/lib/seo';
 import { JsonLd } from '@/components/seo/json-ld';
@@ -17,6 +18,14 @@ export default async function SearchPage({ searchParams }: Props) {
   const p = await searchParams;
   const filters = Object.fromEntries(['source', 'q', 'author', 'genre', 'status', 'country', 'demographic', 'language', 'sort'].map(key => [key, firstParam(p[key])]));
   const page = pageNumber(p.page);
-  const data = toPage(await searchCatalog({ ...filters, language: filters.language || 'vi', year: Number(firstParam(p.year)) || undefined, page, pageSize: 24 }));
+  const result = await searchCatalog({ ...filters, language: filters.language || 'vi', year: Number(firstParam(p.year)) || undefined, page, pageSize: 24 })
+    .catch((error: unknown) => {
+      if (filters.source !== 'truyengg' || !(error instanceof TruyenGgUnavailableError)) throw error;
+      return error;
+    });
+  if (result instanceof TruyenGgUnavailableError) {
+    return <SearchClient key={JSON.stringify(p)} initialData={toPage({ items: [], total: 0, page, pageSize: 24 })} initialError={result.message} />;
+  }
+  const data = toPage(result);
   return <><JsonLd data={collectionSchema('Khám phá truyện tranh', '/tim-truyen-nang-cao', data.items, (page - 1) * 24)} /><SearchClient key={JSON.stringify(p)} initialData={data} /></>;
 }

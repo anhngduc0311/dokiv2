@@ -96,7 +96,9 @@ export async function mangaDexGet(path: string): Promise<any> {
   } catch {
     return mangaDexHttps(path);
   }
-  if (!response.ok) throw new Error('Nguồn truyện tạm thời không phản hồi. Vui lòng thử lại.');
+  if (!response.ok) {
+    throw new Error('Nguồn truyện tạm thời không phản hồi. Vui lòng thử lại. (MangaDex HTTP ' + response.status + ')');
+  }
   return response.json();
 }
 

@@ -10,7 +10,9 @@ import { Icon } from '../../components/ui/icon';
 import { MangaCard } from '../../components/ui/manga-card';
 import { Pagination } from '../../components/ui/pagination';
 
-function SearchContent({ initialData }: { initialData: Page<Manga> }) {
+type SearchProps = { initialData: Page<Manga>; initialError?: string };
+
+function SearchContent({ initialData, initialError = '' }: SearchProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const store = useStore();
@@ -21,7 +23,7 @@ function SearchContent({ initialData }: { initialData: Page<Manga> }) {
   const [page, setPage] = useState(initialData.page);
   const [pageSize] = useState(24);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError);
   const [expanded, setExpanded] = useState(false);
   const epochRef = useRef(0);
 
@@ -404,7 +406,7 @@ function SearchContent({ initialData }: { initialData: Page<Manga> }) {
 
       <div className="section-title results-title">
         <h2>Kết quả tìm kiếm</h2>
-        <span className="muted">{total.toLocaleString('vi')} truyện phù hợp</span>
+        {!error && <span className="muted">{total.toLocaleString('vi')} truyện phù hợp</span>}
       </div>
 
       {error && (
@@ -414,6 +416,7 @@ function SearchContent({ initialData }: { initialData: Page<Manga> }) {
           <button onClick={() => loadSearch(form, page)} className="primary">
             Thử lại
           </button>
+          {searchParams.get('source') === 'truyengg' && <a href="https://truyenggvn.com/" className="secondary">Mở TruyenGG</a>}
         </div>
       )}
 
@@ -456,10 +459,10 @@ function SearchContent({ initialData }: { initialData: Page<Manga> }) {
   );
 }
 
-export default function SearchPage({ initialData }: { initialData: Page<Manga> }) {
+export default function SearchPage(props: SearchProps) {
   return (
     <Suspense fallback={<div className="loading-panel"><div className="search-spinner"></div></div>}>
-      <SearchContent initialData={initialData} />
+      <SearchContent {...props} />
     </Suspense>
   );
 }

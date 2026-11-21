@@ -105,15 +105,20 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
       <div className="mini-chapters">
         {recentChapters.map(c => (
           <div key={c.id} className="mini-chap-item">
-            <Link href={`/chuong/${c.id}`} onClick={savePosition} title={c.title}>
+            <Link href={`/chuong/${c.id}`} prefetch={false} onClick={savePosition} title={c.title}>
               {/oneshot/i.test(c.title) ? 'Oneshot' : `Chapter ${c.number}`}
             </Link>
             <time dateTime={c.publishedAt || undefined}>{c.relativeTime}</time>
           </div>
         ))}
-        {(!manga.chapters || manga.chapters.length === 0) && (
+        {(!manga.chapters || manga.chapters.length === 0) && (manga.totalChapters || 0) > 0 && (
           <div className="mini-chap-item">
-            <span className="muted-author">Chưa có chương</span>
+            <span className="muted-author">Có {manga.totalChapters} chương</span>
+          </div>
+        )}
+        {(!manga.chapters || manga.chapters.length === 0) && !(manga.totalChapters || 0) && (
+          <div className="mini-chap-item">
+            <Link href={`/truyen-tranh/${manga.id}`} prefetch={false} onClick={savePosition}>Xem danh sách chương</Link>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
 # DokiTruyen Next.js
 
-Ứng dụng Next.js App Router dùng Neon PostgreSQL cho dữ liệu, cache và queue; cache RAM được đọc trước để giảm độ trễ. Không cần Redis/Upstash hoặc backend C#.
+Ứng dụng Next.js App Router dùng PostgreSQL cho dữ liệu, cache và queue. Có thể đặt `REDIS_URL` để web và worker dùng chung cache catalog còn hạn. Cache RAM và PostgreSQL tiếp tục phục vụ khi Redis không khả dụng.
 
 ## Cache và worker trên cPanel
 

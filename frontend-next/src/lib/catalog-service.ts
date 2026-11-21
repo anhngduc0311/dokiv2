@@ -218,7 +218,7 @@ async function searchRawCatalog(params: CatalogFilters): Promise<CatalogPage> {
     language: params.language === 'en' ? 'en' : 'vi',
     page: pagination.page, pageSize: pagination.pageSize
   };
-  const cacheKey = 'catalog:browse:multi:v3:' + JSON.stringify(filters);
+  const cacheKey = 'catalog:browse:multi:v5:' + JSON.stringify(filters);
   const cached = await cacheGet<CatalogPage>(cacheKey);
   if (cached) return cached;
   let remoteGenre = filters.genre;
@@ -454,20 +454,30 @@ export async function getMangaChapters(
   return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
 }
 
+const readerSourceRequests = new Map<string, Promise<any>>();
+
 async function readerSourceGet(path: string): Promise<any> {
   const imageServer = path.startsWith('/at-home/server/');
   const key = 'reader:md:response:v1:' + path;
   const cached = await cacheRead<any>(key);
   if (cached?.fresh) return cached.value;
-  try {
-    const result = await mangaDexGet(path);
-    // Image server addresses are short lived; never reuse an expired address.
-    await cacheSet(key, result, imageServer ? 60 : 300, imageServer ? 0 : 86400);
-    return result;
-  } catch (error) {
-    if (cached && !imageServer) return cached.value;
-    throw error;
-  }
+
+  // The HTML page and the chapter API can request the same uncached entry together.
+  const pending = readerSourceRequests.get(path);
+  if (pending) return pending;
+  const request = (async () => {
+    try {
+      const result = await mangaDexGet(path);
+      // Image server addresses are short lived; never reuse an expired address.
+      await cacheSet(key, result, imageServer ? 60 : 300, imageServer ? 0 : 86400);
+      return result;
+    } catch (error) {
+      if (cached && !imageServer) return cached.value;
+      throw error;
+    }
+  })();
+  readerSourceRequests.set(path, request);
+  try { return await request; } finally { readerSourceRequests.delete(path); }
 }
 
 // 6. CHAPTER READER

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
         );
         if (verifyRes.ok) {
           const info = await verifyRes.json();
-          if (info.aud === GOOGLE_CLIENT_ID || info.email) {
+          if (info.aud === GOOGLE_CLIENT_ID && info.email_verified === 'true') {
             email = info.email;
             name = info.name || '';
           }
@@ -59,8 +59,10 @@ export async function POST(req: Request) {
             });
             if (userRes.ok) {
               const userInfo = await userRes.json();
-              email = userInfo.email;
-              name = userInfo.name || '';
+              if (userInfo.email_verified === true) {
+                email = userInfo.email;
+                name = userInfo.name || '';
+              }
             }
           }
         }

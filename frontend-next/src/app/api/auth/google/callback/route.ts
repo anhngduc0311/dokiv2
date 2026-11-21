@@ -53,8 +53,10 @@ export async function GET(req: Request) {
       });
       if (userRes.ok) {
         const userInfo = await userRes.json();
-        email = userInfo.email;
-        name = userInfo.name || '';
+        if (userInfo.email_verified === true) {
+          email = userInfo.email;
+          name = userInfo.name || '';
+        }
       }
     }
 
