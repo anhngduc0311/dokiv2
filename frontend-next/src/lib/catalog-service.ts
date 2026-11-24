@@ -6,9 +6,9 @@ import type { CatalogFilters } from './mangadex-catalog';
 import { ggTotal, ggWindow, getGgDetail, getGgChapters, getGgReader, getGgTags, searchGgTitles } from './truyengg-catalog';
 import { sourceWindow, interleaveSourceItems } from './catalog-pagination';
 import { loadMangaDexChapterFeed, readerNavigation, readMangaDexChapter, ReaderSourceError } from './mangadex-reader';
-import { uniqueChapterSourceMatch, sameStoryTitle, mergeChapterSources, sourceChapterAliases, chapterSourceParts, deduplicateCatalogItems } from './chapter-source-sync';
+import { canLinkChapterSource, sameStoryTitle, mergeChapterSources, sourceChapterAliases, chapterSourceParts, deduplicateCatalogItems, chapterSourceSlug, verifiedChapterSourcePath } from './chapter-source-sync';
 import { findChapterSourceLink, saveChapterSourceLink } from './chapter-source-links';
-import { saveGgReferences, findGgReference } from './source-references';
+import { saveGgReferences, findGgReference, findGgMangaIdsBySlug } from './source-references';
 import { ggId } from './truyengg-parser';
 
 
@@ -271,7 +271,12 @@ async function federatedCatalog(filters: CatalogFilters, remoteGenre: string | u
 }
 
 export async function getHomeCatalog(page = 1, pageSize = 30): Promise<CatalogPage> {
-  return searchCatalog({ page, pageSize, excludeManhuaManhwa: true, language: 'vi', sort: 'latest' });
+  const result = await searchCatalog({ page, pageSize, excludeManhuaManhwa: true, language: 'vi', sort: 'latest' });
+  const latestChapterTime = (item: MangaCard) =>
+    Math.max(0, ...item.chapters.map(chapter => Date.parse(chapter.publishedAt) || 0));
+  const items = result.items.map(item => ({ item, publishedAt: latestChapterTime(item) }));
+  items.sort((a, b) => b.publishedAt - a.publishedAt);
+  return { ...result, items: items.map(({ item }) => item) };
 }
 
 export async function getFeaturedCatalog(limit = 20, page = 1): Promise<CatalogPage> {
@@ -342,29 +347,49 @@ const chapterSyncRequests = new Map<string, Promise<ChapterCard[]>>();
 async function matchingGgSource(manga: MangaCard) {
   const linked = await findChapterSourceLink(manga.id);
   if (linked) return getGgDetail(linked);
-  const missKey = 'chapter-source:miss:v2:' + manga.id + ':' + manga.title;
+  const verifiedPath = verifiedChapterSourcePath(manga.id);
+  if (verifiedPath) {
+    const id = ggId('truyengg:manga:' + verifiedPath.split('/').pop());
+    await saveGgReferences([{ id, kind: 'manga', path: verifiedPath, mangaId: id }]);
+    const detail = await getGgDetail(id);
+    if (detail && canLinkChapterSource(manga, detail.manga)) {
+      await saveChapterSourceLink(manga.id, id, manga.title);
+      return detail;
+    }
+  }
+  const missKey = 'chapter-source:miss:v3:' + manga.id + ':' + manga.title;
   if (await cacheGet(missKey)) return null;
   const queries = [...new Set([manga.title, ...manga.alternativeTitle.split(/[;/|\n]/)].map(t => t.trim()).filter(t => t.length >= 4))].slice(0, 4);
-  const candidates = new Map<string, MangaCard>();
+  const candidates = new Set(await findGgMangaIdsBySlug(queries.map(chapterSourceSlug).filter(Boolean)));
+  let searchFailed = false;
   for (const query of queries) {
-    for (const candidate of await searchGgTitles(query)) {
-      if (sameStoryTitle(manga, candidate)) candidates.set(candidate.id, candidate);
+    try {
+      const results = await searchGgTitles(query);
+      const matches = results.filter(candidate => sameStoryTitle(manga, candidate));
+      for (const candidate of matches) candidates.add(candidate.id);
+      if (matches.length) break;
+    } catch {
+      searchFailed = true;
+      break;
     }
-    if (candidates.size) break;
   }
   // Ambiguous editions and name collisions require a deliberate match instead of a guess.
   if (candidates.size > 3) { await cacheSet(missKey, true, 300); return null; }
-  const details = await Promise.all([...candidates.keys()].map(id => getGgDetail(id)));
-  const candidate = uniqueChapterSourceMatch(manga, details.flatMap(detail => detail ? [detail.manga] : []));
-  const match = candidate ? details.find(detail => detail?.manga.id === candidate.id) : null;
-  if (!match) { await cacheSet(missKey, true, 300); return null; }
+  const details = await Promise.all([...candidates].map(id => getGgDetail(id)));
+  const matches = details.filter(detail => detail && canLinkChapterSource(manga, detail.manga));
+  const match = matches.length === 1 && matches[0]?.chapters.length ? matches[0] : null;
+  if (!match) {
+    if (!searchFailed) await cacheSet(missKey, true, 300);
+    return null;
+  }
   await saveChapterSourceLink(manga.id, match.manga.id, manga.title);
   return match;
 }
 
 async function canonicalChapterFeed(id: string, language: string): Promise<ChapterCard[]> {
   if (language !== 'vi') return mangaDexChapterFeed(id, language);
-  const cached = await cacheGet<ChapterCard[]>('catalog:merged-chapters:v4:' + id);
+  const cacheKey = 'catalog:merged-chapters:v5:' + id;
+  const cached = await cacheGet<ChapterCard[]>(cacheKey);
   if (cached) return cached;
   const pending = chapterSyncRequests.get(id); if (pending) return pending;
   const request = (async () => {
@@ -393,7 +418,7 @@ async function canonicalChapterFeed(id: string, language: string): Promise<Chapt
         aliases.push(...mapped);
       }
       const merged = mergeChapterSources(primary, aliases);
-      await cacheSet('catalog:merged-chapters:v4:' + id, merged, 300, 86400);
+      await cacheSet(cacheKey, merged, 300, 86400);
       return merged;
     } catch {
       // A supplemental source outage must not hide readable MangaDex chapters.
@@ -411,17 +436,6 @@ export async function getMangaChapters(
   ascending: boolean = false,
   language: string = 'vi'
 ): Promise<{ items: ChapterCard[]; total: number; page: number; pageSize: number }> {
-  const linkedSource = language === 'vi' ? await findChapterSourceLink(mangaId) : null;
-  if (linkedSource) {
-    const detail = await getGgDetail(linkedSource).catch(() => null);
-    if (detail) {
-      const primary = await mangaDexChapterFeed(mangaId, language);
-      const aliases = sourceChapterAliases(mangaId, detail.chapters, ggId);
-      const merged = mergeChapterSources(primary, aliases);
-      const items = ascending ? merged : [...merged].reverse();
-      return { items, total: items.length, page: 1, pageSize: Math.max(1, items.length) };
-    }
-  }
   const gg = language === 'vi' ? await getGgChapters(mangaId, ascending) : null;
   if (gg) return gg;
   await ensureDbInitialized();

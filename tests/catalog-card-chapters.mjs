@@ -17,13 +17,13 @@ const service=load('catalog-service.ts',{
  './truyengg-catalog':{},'./catalog-pagination':{},'./chapter-source-sync':{},'./chapter-source-links':{},'./source-references':{},'./truyengg-parser':{}
 });
 const result=await service.getHomeCatalog();
-assert.deepEqual(result.items[0].chapters.map(c=>c.number),[3,2,1],'Cached cards must show the same supplemented chapters as the detail page');
+assert.deepEqual(result.items[1].chapters.map(c=>c.number),[3,2,1],'Cached cards must show the same supplemented chapters as the detail page');
 assert.deepEqual(story.chapters.map(c=>c.number),[1],'Updating cards must not mutate the shared cached page');
-assert.equal(result.items[1],gg,'Unrelated source cards must stay unchanged');
+assert.equal(result.items[0],gg,'The newest chapter across sources must appear first');
 await service.searchCatalog({language:'en'});
 assert.equal(lookups,1,'Vietnamese supplemental chapters must not leak into English cards');
 available=false;
-assert.deepEqual((await service.getHomeCatalog()).items[0].chapters.map(c=>c.number),[1],'Missing merged feeds must preserve the source card');
+assert.deepEqual((await service.getHomeCatalog()).items[1].chapters.map(c=>c.number),[1],'Missing merged feeds must preserve the source card');
 
 const originalNow=Date.now;let now=originalNow(),queries=0,fail=false;
 Date.now=()=>now;

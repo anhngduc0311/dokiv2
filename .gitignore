@@ -37,6 +37,12 @@ release-*/
 !.env.example
 !.env*.example
 
+# Local SSH credentials and host keys
+*.pem
+*.key
+known_hosts
+known_hosts.old
+
 # TypeScript & linters
 *.tsbuildinfo
 **/*.tsbuildinfo
@@ -82,6 +88,8 @@ state/previews/*.json
 .vercel
 .turbo
 .cache/
+.npm-cache/
+.npm-tmp/
 
 # OS generated files
 .DS_Store

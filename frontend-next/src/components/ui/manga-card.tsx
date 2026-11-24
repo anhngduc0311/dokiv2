@@ -66,7 +66,11 @@ export function MangaCard({ manga, idPrefix = '' }: MangaCardProps) {
       >
         <Image
           src={coverFailed ? '/cover-placeholder.svg' : cover}
-          unoptimized={cover.startsWith('http') && !cover.startsWith('https://services.f-ck.me/v1/image/')}
+          // The cover proxy already fetches and streams the remote image.
+          // Sending its URL through Next's optimizer breaks some production
+          // deployments because the optimizer cannot reliably re-fetch the
+          // internal API URL.
+          unoptimized={cover.startsWith('http') && !cover.startsWith('https://services.f-ck.me/v1/image/') || cover.startsWith('/api/catalog/image-proxy')}
           alt={manga.title}
           width={256}
           height={360}

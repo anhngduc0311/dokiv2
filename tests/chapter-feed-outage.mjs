@@ -15,13 +15,16 @@ function load(file, dependencies) {
   return module.exports;
 }
 const reader = load('mangadex-reader.ts', {});
+const chapterSync = load('chapter-source-sync.ts', {});
 const completeFeed = [1,2,3].map(number=>({id:'chapter-'+number,mangaId:'story',number,title:'Chapter '+number,language:'vi',publishedAt:'2026-10-30T00:00:00Z',pagesCount:10}));
 const outage = new TypeError('fetch failed');
 let entry = null, failing = true, feedRequests = 0, saved = null;
+let syncStory = null, matchedSource = null, linked = null;
+const references = new Map();
 const {getMangaChapters} = load('catalog-service.ts', {
   './db': {ensureDbInitialized:async()=>{},sql:async()=>[]},
   './cache': {
-    cacheGet:async()=>null,
+    cacheGet:async key=>key.startsWith('manga:detail:source:') ? syncStory : null,
     cacheRead:async()=>entry,
     cacheSet:async(...args)=>{saved=args}
   },
@@ -32,9 +35,22 @@ const {getMangaChapters} = load('catalog-service.ts', {
     if(failing) throw outage;
     return {total:1,data:[{id:'new-chapter',attributes:{chapter:'4',translatedLanguage:'vi',pages:10,publishAt:'2026-10-30T00:00:00Z'},relationships:[{type:'manga',id:'story'}]}]};
   }},
-  './truyengg-catalog':{getGgChapters:async()=>null,getGgDetail:async()=>null},
+  './truyengg-catalog':{
+    getGgChapters:async()=>null,
+    getGgDetail:async id=>id===matchedSource?.manga.id ? matchedSource : null,
+    searchGgTitles:async()=>{throw outage}
+  },
   './mangadex-reader':reader,
-  './catalog-pagination':{}, './chapter-source-sync':{}, './chapter-source-links':{}, './source-references':{}, './truyengg-parser':{}
+  './catalog-pagination':{}, './chapter-source-sync':chapterSync,
+  './chapter-source-links':{
+    findChapterSourceLink:async()=>linked,
+    saveChapterSourceLink:async (_mangaId,id)=>{linked=id}
+  },
+  './source-references':{
+    findGgMangaIdsBySlug:async slugs=>slugs.includes('mot-truyen-khac') ? ['other-gg'] : [],
+    saveGgReferences:async refs=>refs.forEach(ref=>references.set(ref.id,ref))
+  },
+  './truyengg-parser':{ggId:key=>key}
 });
 entry={value:completeFeed,fresh:false};
 const stale=await getMangaChapters('story');
@@ -53,6 +69,27 @@ const refreshed=await getMangaChapters('story');
 assert.equal(refreshed.items[0].id,'new-chapter');
 assert.equal(saved[3],86400,'A complete refreshed feed must remain available through the next day of source interruptions');
 console.log('Chapter feed outage, cold failure, fresh-cache and refresh retention checks passed');
+
+for (const [id,title,sourceId] of [
+  ['e3e2c204-ccc4-4061-b9e0-526a8b47d652','Tân Trang Nhà Cùng Gyaru','truyengg:manga:tan-trang-nha-cung-gyaru-23976'],
+  ['other-md','Một Truyện Khác','other-gg']
+]) {
+  linked=null;
+  syncStory={id,title,alternativeTitle:'',author:'Known Author',country:'ja'};
+  const chapters=Array.from({length:5},(_,i)=>({...completeFeed[0],id:'gg-'+(i+1),mangaId:sourceId,number:i+1}));
+  matchedSource={manga:{...syncStory,id:sourceId,author:'Đang Cập Nhật'},chapters,
+    refs:chapters.map(chapter=>({id:chapter.id,kind:'chapter',mangaId:sourceId,path:'/chapter-'+chapter.number}))};
+  entry={value:[{...completeFeed[0],mangaId:id}],fresh:true};
+  const initial=await getMangaChapters(id);
+  assert.deepEqual(initial.items.map(chapter=>chapter.number),[5,4,3,2,1]);
+  assert.equal(initial.items.at(-1).id,completeFeed[0].id);
+  assert.equal(linked,sourceId);
+  references.clear();
+  const existing=await getMangaChapters(id,1,true);
+  assert.deepEqual(existing.items.map(chapter=>chapter.number),[1,2,3,4,5]);
+  assert.equal(references.get(existing.items.at(-1).id)?.mangaId,id,'Existing links must also register reader references');
+}
+console.log('Verified source and indexed-title fallback both fill gaps during search outages');
 
 let pageFailure = true;
 const manga = {id:'story',title:'A readable story',description:'Description',genres:[],author:'Chưa rõ'};

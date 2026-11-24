@@ -4,6 +4,17 @@ export function normalizeStoryTitle(title: string): string {
   return title.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[đĐ]/g, 'd').replace(/[×✕✖]/g, 'x')
     .toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
+export function chapterSourceSlug(title: string): string {
+  return title.normalize('NFKD').replace(/\p{M}/gu, '').replace(/[đĐ]/g, 'd')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+export function verifiedChapterSourcePath(mangaId: string): string | undefined {
+  if (mangaId === 'e3e2c204-ccc4-4061-b9e0-526a8b47d652') {
+    return '/truyen-tranh/tan-trang-nha-cung-gyaru-23976';
+  }
+}
+
 function titleKeys(manga: Pick<MangaCard, 'title' | 'alternativeTitle'>): Set<string> {
   return new Set([manga.title, ...manga.alternativeTitle.split(/[;/|\n]/)]
     .map(normalizeStoryTitle).filter(key => key.length >= 4));

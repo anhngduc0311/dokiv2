@@ -8,7 +8,7 @@
     "build:standalone": "next build && node scripts/prepare-standalone.mjs && npm run build:worker",
     "start": "next start",
     "lint": "eslint .",
-    "build:worker": "esbuild src/worker.ts --bundle --platform=node --target=node24 --format=cjs --outfile=.next/standalone/worker.cjs",
+    "build:worker": "esbuild src/worker.ts --bundle --platform=node --target=node24 --format=cjs --external:domutils --external:entities --outfile=.next/worker.cjs",
     "package:cpanel": "node scripts/package-cpanel.mjs"
   },
   "dependencies": {

@@ -38,3 +38,15 @@ export async function findGgReference(id: string, kind: GgReference['kind']): Pr
     references.set(id, ref); return ref;
   } catch { return null; }
 }
+
+export async function findGgMangaIdsBySlug(slugs: string[]): Promise<string[]> {
+  if (!slugs.length) return [];
+  await ensureReferences();
+  const rows = await sql`
+    SELECT "Id" FROM "CatalogSourceRefs"
+    WHERE "Source" = 'truyengg' AND "Kind" = 'manga'
+      AND regexp_replace("Path", '^/truyen-tranh/|-[0-9]+(\\.html)?$', '', 'g') = ANY(${slugs}::text[])
+    LIMIT 4
+  `;
+  return rows.map(row => row.Id);
+}
