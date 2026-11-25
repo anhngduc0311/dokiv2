@@ -6,14 +6,27 @@ import { JsonLd } from '@/components/seo/json-ld';
 
 export const dynamic = 'force-dynamic';
 type Props = { params: Promise<{ name: string }>; searchParams: Promise<SearchParams> };
+function decodeAuthorName(raw: string): string {
+  let value = raw || '';
+  for (let i = 0; i < 2; i++) {
+    try {
+      const next = decodeURIComponent(value);
+      if (next === value) break;
+      value = next;
+    } catch {
+      break;
+    }
+  }
+  return value.trim();
+}
 export async function generateMetadata({ params, searchParams }: Props) {
-  const { name } = await params;
+  const name = decodeAuthorName((await params).name);
   const query = await searchParams;
   const page = pageNumber(query.page);
   return pageMetadata(`Truyện của ${name}${page > 1 ? ` - Trang ${page}` : ''}`, `Khám phá các bộ truyện tranh của tác giả ${name} và các chương mới tại DokiTruyen.`, `/tac-gia/${encodeURIComponent(name)}${page > 1 ? `?page=${page}` : ''}`, undefined, !firstParam(query.sort) || firstParam(query.sort) === 'latest');
 }
 export default async function AuthorPage({ params, searchParams }: Props) {
-  const { name } = await params;
+  const name = decodeAuthorName((await params).name);
   const page = pageNumber((await searchParams).page);
   const data = toPage(await getAuthorManga(name, page, 24));
   const path = `/tac-gia/${encodeURIComponent(name)}`;

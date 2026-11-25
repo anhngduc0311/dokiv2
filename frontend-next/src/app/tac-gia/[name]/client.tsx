@@ -10,12 +10,26 @@ import { Icon } from '../../../components/ui/icon';
 import { MangaCard } from '../../../components/ui/manga-card';
 import { Pagination } from '../../../components/ui/pagination';
 
+function decodeAuthorName(raw: string): string {
+  let value = raw || '';
+  for (let i = 0; i < 2; i++) {
+    try {
+      const next = decodeURIComponent(value);
+      if (next === value) break;
+      value = next;
+    } catch {
+      break;
+    }
+  }
+  return value.trim();
+}
+
 function AuthorContent({ initialData }: { initialData?: Page<Manga> }) {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const rawName = params?.name ? String(params.name) : searchParams.get('name') || '';
+  const rawName = decodeAuthorName(params?.name ? String(params.name) : searchParams.get('name') || '');
   const [name, setName] = useState(rawName);
   const [searchQuery, setSearchQuery] = useState(rawName);
   const [sort, setSort] = useState(() => searchParams.get('sort') || 'latest');
@@ -28,7 +42,7 @@ function AuthorContent({ initialData }: { initialData?: Page<Manga> }) {
   const epochRef = useRef(0);
 
   useEffect(() => {
-    const currentName = params?.name ? String(params.name) : searchParams.get('name') || '';
+    const currentName = decodeAuthorName(params?.name ? String(params.name) : searchParams.get('name') || '');
     setName(currentName);
     setSearchQuery(currentName);
     const p = Math.max(1, Number(searchParams.get('page')) || 1);

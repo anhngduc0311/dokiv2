@@ -159,7 +159,7 @@ export function catalogPageKey(params: CatalogFilters): string {
 export async function searchCatalog(params: CatalogFilters, forceRefresh = false): Promise<CatalogPage> {
   const result = await cachedCatalog(catalogPageKey(params), params, async () => {
     const result = await loadUniqueCatalog(params);
-    if (forceRefresh && !result.items.length) throw new Error('Upstream refresh returned no stories');
+    if (forceRefresh && !result.items.length && !params.q && !params.author) throw new Error('Upstream refresh returned no stories');
     return result;
   }, forceRefresh);
   if (params.language === 'en') return result;
@@ -649,5 +649,15 @@ export async function getTags(): Promise<{ id: string; name: string }[]> {
 
 // 8. AUTHORS
 export async function getAuthorManga(name: string, page: number = 1, pageSize: number = 24): Promise<CatalogPage> {
-  return searchCatalog({ author: name, page, pageSize });
+  let decoded = name || '';
+  for (let i = 0; i < 2; i++) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+  return searchCatalog({ author: decoded.trim(), page, pageSize });
 }
