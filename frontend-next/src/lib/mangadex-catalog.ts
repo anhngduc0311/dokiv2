@@ -1,5 +1,6 @@
 import type { MangaCard, CatalogPage, ChapterCard } from './catalog-service';
 import { get } from 'node:https';
+import { fetchViaRotatingProxy, isRotatingProxyEnabled } from './rotating-proxy';
 
 const API = 'https://api.mangadex.org';
 const SOURCE_HEADERS = { Accept: 'application/json', 'User-Agent': 'DokiTruyen/1.0 (+https://dokitruyen.com)' };
@@ -84,6 +85,19 @@ function mangaDexHttps(path: string): Promise<any> {
   });
 }
 
+async function mangaDexViaRotatingProxy(path: string): Promise<any> {
+  const res = await fetchViaRotatingProxy(API + path, {
+    headers: SOURCE_HEADERS,
+    timeoutMs: 10000,
+    maxBytes: 8 * 1024 * 1024,
+    shouldRotate: r => r.status === 403 || r.status === 429 || r.status >= 500,
+  });
+  if (!res.ok) {
+    throw new Error('Nguồn truyện tạm thời không phản hồi. Vui lòng thử lại. (MangaDex HTTP ' + res.status + ')');
+  }
+  return res.json();
+}
+
 export async function mangaDexGet(path: string): Promise<any> {
   let response: Response;
   try {
@@ -94,9 +108,21 @@ export async function mangaDexGet(path: string): Promise<any> {
       cache: 'no-store',
     });
   } catch {
-    return mangaDexHttps(path);
+    try {
+      return await mangaDexHttps(path);
+    } catch (httpsError) {
+      if (isRotatingProxyEnabled()) return mangaDexViaRotatingProxy(path);
+      throw httpsError;
+    }
   }
   if (!response.ok) {
+    if ((response.status === 403 || response.status === 429 || response.status >= 500) && isRotatingProxyEnabled()) {
+      try {
+        return await mangaDexViaRotatingProxy(path);
+      } catch {
+        // Fall through to original HTTP status error.
+      }
+    }
     throw new Error('Nguồn truyện tạm thời không phản hồi. Vui lòng thử lại. (MangaDex HTTP ' + response.status + ')');
   }
   return response.json();

@@ -95,6 +95,9 @@ function ReaderContent({ initialData, chapterId = '', initialError = '' }: Reade
   const touchStartYRef = useRef(0);
   const preloadedUrlsRef = useRef<Set<string>>(new Set());
   const cleanedPagesRef = useRef<Map<string, string>>(new Map());
+  const checkedBannersRef = useRef<Set<string>>(new Set());
+  const imgElsRef = useRef<Map<number, HTMLImageElement>>(new Map());
+  const [, setCleanedVersion] = useState(0);
   const preloadedNextIdRef = useRef('');
   const lastScrollYRef = useRef(0);
   const epochRef = useRef(0);
@@ -291,10 +294,19 @@ function ReaderContent({ initialData, chapterId = '', initialError = '' }: Reade
     return () => clearTimeout(timer);
   }, [data?.chapter.id]);
 
-  const onLoaded = (i: number, event: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const image = event.currentTarget;
+  const isTruyenGg = data?.manga?.source === 'truyengg' || data?.chapter?.group === 'TruyenGG';
+
+  const processLoadedImage = (i: number, image: HTMLImageElement) => {
     const url = pagesList[i];
-    if (url && !cleanedPagesRef.current.has(url) && image.naturalWidth > 0) {
+    if (
+      isTruyenGg &&
+      url &&
+      !url.includes('clean=truyengg') &&
+      !cleanedPagesRef.current.has(url) &&
+      !checkedBannersRef.current.has(url) &&
+      image.naturalWidth > 0
+    ) {
+      checkedBannersRef.current.add(url);
       try {
         const probe = document.createElement('canvas');
         probe.width = probe.height = 12;
@@ -326,6 +338,7 @@ function ReaderContent({ initialData, chapterId = '', initialError = '' }: Reade
               output.height
             );
           cleanedPagesRef.current.set(url, output.toDataURL('image/jpeg', 0.95));
+          setCleanedVersion(v => v + 1);
           setLoaded(prev => {
             const nextSet = new Set(prev);
             nextSet.delete(i);
@@ -344,6 +357,10 @@ function ReaderContent({ initialData, chapterId = '', initialError = '' }: Reade
     if (total > 0 && i >= total - 4) {
       void preloadNextChapter(data);
     }
+  };
+
+  const onLoaded = (i: number, event: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    processLoadedImage(i, event.currentTarget);
   };
 
   const imageError = (i: number) => {
@@ -385,6 +402,7 @@ function ReaderContent({ initialData, chapterId = '', initialError = '' }: Reade
     setFallbackUrls(new Map());
     preloadedUrlsRef.current.clear();
     cleanedPagesRef.current.clear();
+    checkedBannersRef.current.clear();
     preloadedNextIdRef.current = '';
     scrollToTopInstant();
 
@@ -414,6 +432,16 @@ function ReaderContent({ initialData, chapterId = '', initialError = '' }: Reade
     void loadChapter();
     return () => { epochRef.current++; };
   }, [id]);
+
+  // Process SSR/cached images that already finished loading before React attached onLoad.
+  useEffect(() => {
+    if (!isTruyenGg) return;
+    imgElsRef.current.forEach((img, idx) => {
+      if (img.complete && img.naturalWidth > 0) {
+        processLoadedImage(idx, img);
+      }
+    });
+  }, [data?.chapter.id, isTruyenGg, mode, singlePageIndex]);
 
   const go = (targetId: string) => {
     if (targetId === id) return;
@@ -940,6 +968,10 @@ function ReaderContent({ initialData, chapterId = '', initialError = '' }: Reade
                     </div>
                   ) : (
                     <img
+                      ref={el => {
+                        if (el) imgElsRef.current.set(i, el);
+                        else imgElsRef.current.delete(i);
+                      }}
                       src={pageUrl(url, i)}
                       alt={`Trang ${i + 1} — ${data.chapter.title}`}
                       loading={i < 3 ? 'eager' : 'lazy'}
@@ -994,6 +1026,10 @@ function ReaderContent({ initialData, chapterId = '', initialError = '' }: Reade
                     </div>
                   ) : (
                     <img
+                      ref={el => {
+                        if (el) imgElsRef.current.set(singlePageIndex, el);
+                        else imgElsRef.current.delete(singlePageIndex);
+                      }}
                       src={pageUrl(pagesList[singlePageIndex], singlePageIndex)}
                       alt={`Trang ${singlePageIndex + 1}`}
                       decoding="async"

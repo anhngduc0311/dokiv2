@@ -18,7 +18,10 @@ const https={get(url,options,callback){
   });
   return request;
 }};
-new Function('require','fetch','module','exports',code)(name=>{assert.equal(name,'node:https');return https},async(url,options)=>{
+new Function('require','fetch','module','exports',code)(name=>{
+  if(name==='./rotating-proxy') return {isRotatingProxyEnabled:()=>false,fetchViaRotatingProxy:async()=>{throw new Error('rotating proxy disabled in test')}};
+  assert.equal(name,'node:https');return https;
+},async(url,options)=>{
   calls.push({url,options});
   if(failures-->0) throw new TypeError('fetch failed: closed socket');
   return {ok:status===200,status,json:async()=>data};

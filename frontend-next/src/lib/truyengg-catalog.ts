@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { cacheGet, cacheSet } from './cache';
+import { cacheGet, cacheRead, cacheSet } from './cache';
+import { fetchViaRotatingProxy, isRotatingProxyEnabled } from './rotating-proxy';
 import { saveGgReferences, findGgReference } from './source-references';
 import { GG_ORIGIN, ggId, parseGgGrid, parseGgSearch, parseGgDetail, parseGgReaderPages, ggGenres } from './truyengg-parser';
 import type { CatalogFilters } from './mangadex-catalog';
@@ -17,37 +18,71 @@ const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
 const relay = process.env.TRUYENGG_PROXY_URL?.replace(/\/$/, '');
 const translatedOrigin = 'https://truyenggvn-com.translate.goog';
 const translatedQuery = '_x_tr_sl=vi&_x_tr_tl=en&_x_tr_hl=en';
+function isBlockedGgHtml(html: string): boolean {
+  return !html || /<title>[^<]*(?:Attention Required|Just a moment)/i.test(html);
+}
+
 async function ggHtml(path: string, search?: string): Promise<string> {
   const key = 'truyengg:html:next:v1:' + createHash('sha256').update(path + ':' + (search || '')).digest('hex');
-  const cached = await cacheGet<string>(key); if (cached) return cached;
+  const cached = await cacheRead<string>(key); if (cached?.fresh) return cached.value;
   const inFlight = pending.get(key); if (inFlight) return inFlight;
   const request = (async () => {
+    const reqHeaders = search === undefined
+      ? headers
+      : { ...headers, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' };
+    const reqBody = search === undefined ? undefined : new URLSearchParams({ search });
     const target = relay
       ? (search === undefined ? relay + '/fetch?path=' + encodeURIComponent(path) : relay + '/search?q=' + encodeURIComponent(search))
       : GG_ORIGIN + path;
-    let res = await fetch(target, {
-      method: search === undefined ? 'GET' : 'POST',
-      headers: search === undefined ? headers : { ...headers, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: search === undefined ? undefined : new URLSearchParams({ search }),
-      // cacheGet/cacheSet above already persist this response in PostgreSQL.
-      signal: AbortSignal.timeout(10000), cache: 'no-store'
-    });
-    if (!res.ok && search === undefined) {
+
+    let html = '';
+    try {
+      const res = await fetch(target, {
+        method: search === undefined ? 'GET' : 'POST',
+        headers: reqHeaders,
+        body: reqBody,
+        // cacheGet/cacheSet above already persist this response in PostgreSQL.
+        signal: AbortSignal.timeout(10000), cache: 'no-store'
+      });
+      if (res.ok) html = await res.text();
+    } catch {
+      // Fall through to rotating proxy / translate fallback.
+    }
+
+    if (isBlockedGgHtml(html) && isRotatingProxyEnabled()) {
+      try {
+        const proxied = await fetchViaRotatingProxy(GG_ORIGIN + path, {
+          method: search === undefined ? 'GET' : 'POST',
+          headers: reqHeaders,
+          body: reqBody,
+          timeoutMs: 12000,
+          shouldRotate: r => !r.ok || isBlockedGgHtml(r.text()),
+        });
+        if (proxied.ok) html = proxied.text();
+      } catch {
+        // Fall through to translate fallback.
+      }
+    }
+
+    if (isBlockedGgHtml(html) && search === undefined) {
       const fallback = new URL(translatedOrigin + path);
-      for (const [key, value] of new URLSearchParams(translatedQuery)) fallback.searchParams.set(key, value);
-      for (let attempt = 0; attempt < 3 && !res.ok; attempt++) {
+      for (const [k, value] of new URLSearchParams(translatedQuery)) fallback.searchParams.set(k, value);
+      for (let attempt = 0; attempt < 3 && isBlockedGgHtml(html); attempt++) {
         try {
-          res = await fetch(fallback, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+          const res = await fetch(fallback, { signal: AbortSignal.timeout(15000), cache: 'no-store' });
+          if (res.ok) html = await res.text();
         } catch {
           if (attempt === 2) throw new TruyenGgUnavailableError();
         }
       }
     }
-    if (!res.ok) throw new TruyenGgUnavailableError();
-    const html = await res.text();
-    if (!html || /<title>[^<]*(?:Attention Required|Just a moment)/i.test(html)) throw new TruyenGgUnavailableError();
-    await cacheSet(key, html, 300); return html;
-  })();
+
+    if (isBlockedGgHtml(html)) throw new TruyenGgUnavailableError();
+    await cacheSet(key, html, 300, 7 * 86400); return html;
+  })().catch(error => {
+    if (cached) return cached.value;
+    throw error;
+  });
   pending.set(key, request);
   try { return await request; } finally { pending.delete(key); }
 }

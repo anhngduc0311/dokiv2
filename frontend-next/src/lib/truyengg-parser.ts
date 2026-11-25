@@ -156,7 +156,7 @@ export function parseGgReaderPages(html: string): string[] {
     const el = $(img); const raw = ggImage(el.attr('data-original') || el.attr('data-cdn') || el.attr('data-src') || el.attr('src') || '');
     if (!raw) return; const url = new URL(raw);
     if ((url.hostname === 'hinhhinh.com' || url.hostname.endsWith('.hinhhinh.com')) && url.pathname === '/19852/1/0.jpg') return;
-    pages.push(ggProxy(raw));
+    pages.push(ggProxy(raw) + '&clean=truyengg');
   });
   return [...new Set(pages)];
 }
